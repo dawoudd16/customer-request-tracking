@@ -1,0 +1,268 @@
+/**
+ * Request Service
+ * 
+ * Contains business logic for request operations
+ * This layer sits between controllers and repositories
+ */
+
+const requestRepository = require('../repositories/requestRepository');
+const documentRepository = require('../repositories/documentRepository');
+const userRepository = require('../repositories/userRepository');
+const auditLogRepository = require('../repositories/auditLogRepository');
+const { createRequest: createRequestModel, REQUEST_STATUS, REVIEW_STATUS } = require('../models/request');
+const crypto = require('crypto');
+
+/**
+ * Generate a high-entropy secure token for customer access
+ * This token should be unguessable and unique
+ */
+function generateSecureToken() {
+  // Generate 32 random bytes and convert to base64url
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+/**
+ * Create a new customer request
+ * 
+ * Business rules:
+ * - Creates customer user if doesn't exist
+ * - Generates secure token for customer access
+ * - Sets initial status to OPEN
+ * - Creates audit log entry
+ */
+async function createRequest(agentId, requestData, actorIp = null) {
+  // Find or create customer user
+  const customer = await userRepository.findOrCreateCustomer({
+    name: requestData.customerName,
+    phone: requestData.customerPhone,
+    email: requestData.customerEmail
+  });
+
+  // Generate secure token for customer portal access
+  const secureToken = generateSecureToken();
+
+  // Create request document
+  const request = createRequestModel({
+    customerId: customer.id,
+    agentId: agentId,
+    secureToken: secureToken,
+    customerName: requestData.customerName,
+    customerPhone: requestData.customerPhone,
+    customerEmail: requestData.customerEmail,
+    dealerId: requestData.dealerId,
+    vehicleId: requestData.vehicleId,
+    notes: requestData.notes
+  });
+
+  const createdRequest = await requestRepository.createRequest(request);
+
+  // Create audit log
+  await auditLogRepository.createAuditLog({
+    actorId: agentId,
+    action: 'REQUEST_CREATED',
+    requestId: createdRequest.id,
+    ip: actorIp,
+    metadata: {
+      customerName: requestData.customerName,
+      customerPhone: requestData.customerPhone
+    }
+  });
+
+  return {
+    ...createdRequest,
+    customerLink: `/customer/${secureToken}`
+  };
+}
+
+/**
+ * Get request details including documents
+ */
+async function getRequestDetails(requestId) {
+  const request = await requestRepository.getRequestById(requestId);
+  if (!request) {
+    return null;
+  }
+
+  const documents = await documentRepository.getDocumentsByRequestId(requestId);
+  const documentStatus = await documentRepository.getDocumentUploadStatus(requestId);
+
+  return {
+    ...request,
+    documents,
+    documentStatus
+  };
+}
+
+/**
+ * Update request status and/or notes
+ */
+async function updateRequest(requestId, updates, actorId, actorIp = null) {
+  const currentRequest = await requestRepository.getRequestById(requestId);
+  if (!currentRequest) {
+    throw new Error('Request not found');
+  }
+
+  const updateData = {};
+
+  // Update status if provided
+  if (updates.status && updates.status !== currentRequest.status) {
+    // Validate status transition (basic check - can be enhanced)
+    if (currentRequest.status === REQUEST_STATUS.EXPIRED && updates.status !== REQUEST_STATUS.OPEN) {
+      throw new Error('Expired requests can only be reopened (set to OPEN)');
+    }
+    updateData.status = updates.status;
+    
+    // Create audit log for status change
+    await auditLogRepository.createAuditLog({
+      actorId: actorId,
+      action: 'STATUS_CHANGED',
+      requestId: requestId,
+      ip: actorIp,
+      metadata: {
+        oldStatus: currentRequest.status,
+        newStatus: updates.status
+      }
+    });
+  }
+
+  // Update notes if provided
+  if (updates.notes !== undefined && updates.notes !== currentRequest.notes) {
+    updateData.notes = updates.notes;
+    
+    await auditLogRepository.createAuditLog({
+      actorId: actorId,
+      action: 'NOTES_UPDATED',
+      requestId: requestId,
+      ip: actorIp
+    });
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return currentRequest; // No changes
+  }
+
+  return await requestRepository.updateRequest(requestId, updateData);
+}
+
+/**
+ * Mark that agent reminded the customer
+ * 
+ * Business rules:
+ * - Resets reminder level to 0
+ * - Sets lastReminderAt to now
+ * - Creates audit log
+ */
+async function markReminderConfirmed(requestId, actorId, actorIp = null) {
+  const request = await requestRepository.getRequestById(requestId);
+  if (!request) {
+    throw new Error('Request not found');
+  }
+
+  if (request.status === REQUEST_STATUS.EXPIRED) {
+    throw new Error('Cannot confirm reminder for expired request');
+  }
+
+  await requestRepository.updateRequest(requestId, {
+    needsReminderLevel: 0,
+    lastReminderAt: new Date()
+  });
+
+  await auditLogRepository.createAuditLog({
+    actorId: actorId,
+    action: 'REMINDER_CONFIRMED',
+    requestId: requestId,
+    ip: actorIp
+  });
+
+  return await requestRepository.getRequestById(requestId);
+}
+
+/**
+ * Reopen an expired request
+ * 
+ * Business rules:
+ * - Only works if status is EXPIRED
+ * - Sets status to OPEN
+ * - Clears expiredAt
+ * - Resets reminder level
+ */
+async function reopenRequest(requestId, actorId, actorIp = null) {
+  const request = await requestRepository.getRequestById(requestId);
+  if (!request) {
+    throw new Error('Request not found');
+  }
+
+  if (request.status !== REQUEST_STATUS.EXPIRED) {
+    throw new Error('Can only reopen expired requests');
+  }
+
+  await requestRepository.updateRequest(requestId, {
+    status: REQUEST_STATUS.OPEN,
+    expiredAt: null,
+    needsReminderLevel: 0,
+    lastReminderAt: null
+  });
+
+  await auditLogRepository.createAuditLog({
+    actorId: actorId,
+    action: 'REQUEST_REOPENED',
+    requestId: requestId,
+    ip: actorIp
+  });
+
+  return await requestRepository.getRequestById(requestId);
+}
+
+/**
+ * Review request (Approve or Reject)
+ * 
+ * Business rules:
+ * - Only works if status is SUBMITTED
+ * - Sets reviewStatus and reviewComment
+ * - Records who reviewed and when
+ */
+async function reviewRequest(requestId, decision, comment, actorId, actorIp = null) {
+  const request = await requestRepository.getRequestById(requestId);
+  if (!request) {
+    throw new Error('Request not found');
+  }
+
+  if (request.status !== REQUEST_STATUS.SUBMITTED) {
+    throw new Error('Can only review submitted requests');
+  }
+
+  if (decision === 'REJECT' && !comment) {
+    throw new Error('Rejection comment is required');
+  }
+
+  const reviewStatus = decision === 'APPROVE' ? REVIEW_STATUS.APPROVED : REVIEW_STATUS.REJECTED;
+
+  await requestRepository.updateRequest(requestId, {
+    reviewStatus: reviewStatus,
+    reviewComment: comment || null,
+    reviewedBy: actorId,
+    reviewedAt: new Date()
+  });
+
+  await auditLogRepository.createAuditLog({
+    actorId: actorId,
+    action: decision === 'APPROVE' ? 'REVIEW_APPROVED' : 'REVIEW_REJECTED',
+    requestId: requestId,
+    ip: actorIp,
+    metadata: {
+      comment: comment
+    }
+  });
+
+  return await requestRepository.getRequestById(requestId);
+}
+
+module.exports = {
+  createRequest,
+  getRequestDetails,
+  updateRequest,
+  markReminderConfirmed,
+  reopenRequest,
+  reviewRequest
+};
+

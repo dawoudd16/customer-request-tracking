@@ -1,0 +1,174 @@
+/**
+ * Manager Controller
+ * 
+ * Handles HTTP requests for Manager endpoints
+ * Version 1: Mostly stubbed, returns placeholder data
+ * Version 2: Full implementation with KPIs, reassignment, audit logs
+ */
+
+const requestRepository = require('../repositories/requestRepository');
+const auditLogRepository = require('../repositories/auditLogRepository');
+const requestService = require('../services/requestService');
+
+/**
+ * Get KPIs (Key Performance Indicators)
+ * GET /api/manager/kpis
+ * 
+ * Version 1: Returns basic counts
+ * Version 2: Add more sophisticated metrics
+ */
+async function getKPIs(req, res) {
+  try {
+    // Get all requests for KPI calculation
+    const allRequests = await requestRepository.getAllRequests();
+
+    // Calculate KPIs
+    const kpis = {
+      total: allRequests.length,
+      open: allRequests.filter(r => r.status === 'OPEN').length,
+      inProgress: allRequests.filter(r => r.status === 'IN_PROGRESS').length,
+      submitted: allRequests.filter(r => r.status === 'SUBMITTED').length,
+      approved: allRequests.filter(r => r.reviewStatus === 'APPROVED').length,
+      rejected: allRequests.filter(r => r.reviewStatus === 'REJECTED').length,
+      completed: allRequests.filter(r => r.status === 'COMPLETED').length,
+      expired: allRequests.filter(r => r.status === 'EXPIRED').length
+    };
+
+    res.json({ kpis });
+  } catch (error) {
+    console.error('Error getting KPIs:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message 
+    });
+  }
+}
+
+/**
+ * List all requests with filters
+ * GET /api/manager/requests
+ * 
+ * Version 1: Basic filtering
+ * Version 2: Advanced filters, pagination
+ */
+async function listRequests(req, res) {
+  try {
+    const { agentId, status, startDate, endDate } = req.query;
+
+    const filters = {};
+    if (agentId) filters.agentId = agentId;
+    if (status) filters.status = status;
+    if (startDate) filters.startDate = new Date(startDate);
+    if (endDate) filters.endDate = new Date(endDate);
+
+    const requests = await requestRepository.getAllRequests(filters);
+
+    res.json({ requests });
+  } catch (error) {
+    console.error('Error listing requests:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message 
+    });
+  }
+}
+
+/**
+ * Reassign request to another agent
+ * POST /api/manager/requests/:id/reassign
+ * 
+ * Version 1: Stub
+ * Version 2: Full implementation
+ */
+async function reassignRequest(req, res) {
+  try {
+    const { id } = req.params;
+    const { newAgentId } = req.body;
+
+    if (!newAgentId) {
+      return res.status(400).json({ 
+        error: 'Bad Request', 
+        message: 'newAgentId is required' 
+      });
+    }
+
+    // TODO: Verify newAgentId exists and is an agent
+    // TODO: Update request.agentId
+    // TODO: Create audit log
+
+    res.json({ 
+      message: 'Reassignment feature coming in version 2',
+      requestId: id,
+      newAgentId 
+    });
+  } catch (error) {
+    console.error('Error reassigning request:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message 
+    });
+  }
+}
+
+/**
+ * Reopen expired request (same as Tele-Sales)
+ * POST /api/manager/requests/:id/reopen
+ */
+async function reopenRequest(req, res) {
+  try {
+    const { id } = req.params;
+    const managerId = req.user.uid;
+    const actorIp = req.ip || req.connection.remoteAddress;
+
+    const updatedRequest = await requestService.reopenRequest(id, managerId, actorIp);
+
+    res.json({
+      message: 'Request reopened successfully',
+      request: updatedRequest
+    });
+  } catch (error) {
+    console.error('Error reopening request:', error);
+    res.status(400).json({ 
+      error: 'Bad Request', 
+      message: error.message 
+    });
+  }
+}
+
+/**
+ * Get audit log for a request
+ * GET /api/manager/requests/:id/audit
+ */
+async function getAuditLog(req, res) {
+  try {
+    const { id } = req.params;
+
+    // Verify request exists
+    const request = await requestRepository.getRequestById(id);
+    if (!request) {
+      return res.status(404).json({ 
+        error: 'Not Found', 
+        message: 'Request not found' 
+      });
+    }
+
+    const auditLogs = await auditLogRepository.getAuditLogsByRequestId(id);
+
+    res.json({ auditLogs });
+  } catch (error) {
+    console.error('Error getting audit log:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message 
+    });
+  }
+}
+
+module.exports = {
+  getKPIs,
+  listRequests,
+  reassignRequest,
+  reopenRequest,
+  getAuditLog
+};
+
