@@ -20,7 +20,7 @@ const { storage } = require('../firebase');
  * - Creates audit log
  */
 async function uploadDocument(requestId, documentType, file, actorIp = null) {
-  // Verify request exists and is not expired
+  // Verify request exists and is not expired or completed
   const request = await requestRepository.getRequestById(requestId);
   if (!request) {
     throw new Error('Request not found');
@@ -28,6 +28,15 @@ async function uploadDocument(requestId, documentType, file, actorIp = null) {
 
   if (request.status === REQUEST_STATUS.EXPIRED) {
     throw new Error('Cannot upload documents to expired request');
+  }
+
+  if (request.status === REQUEST_STATUS.COMPLETED) {
+    throw new Error('Cannot upload documents to completed request');
+  }
+
+  // Also block if already approved (even if status hasn't changed yet)
+  if (request.reviewStatus === 'APPROVED') {
+    throw new Error('Cannot upload documents to approved request');
   }
 
   // Validate document type
@@ -124,6 +133,15 @@ async function submitRequest(requestId, actorIp = null) {
 
   if (request.status === REQUEST_STATUS.EXPIRED) {
     throw new Error('Cannot submit expired request');
+  }
+
+  if (request.status === REQUEST_STATUS.COMPLETED) {
+    throw new Error('Cannot submit completed request');
+  }
+
+  // Also block if already approved
+  if (request.reviewStatus === 'APPROVED') {
+    throw new Error('Cannot submit approved request');
   }
 
   // Check if all documents are uploaded

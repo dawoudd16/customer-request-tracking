@@ -101,7 +101,11 @@ function CustomerPortal() {
   }
 
   const allDocumentsUploaded = Object.values(documentStatus).every(Boolean);
-  const isReadOnly = request.isReadOnly || request.status === 'EXPIRED';
+  // Make read-only if expired, completed, or already approved
+  const isReadOnly = request.isReadOnly || 
+                     request.status === 'EXPIRED' || 
+                     request.status === 'COMPLETED' || 
+                     request.reviewStatus === 'APPROVED';
 
   return (
     <div style={{
@@ -120,6 +124,18 @@ function CustomerPortal() {
           marginBottom: '20px'
         }}>
           <strong>Your request has expired.</strong> Please contact your sales agent for assistance.
+        </div>
+      )}
+
+      {request.status === 'COMPLETED' && (
+        <div style={{
+          padding: '15px',
+          backgroundColor: '#d4edda',
+          color: '#155724',
+          borderRadius: '4px',
+          marginBottom: '20px'
+        }}>
+          <strong>✓ Your request has been completed!</strong> Thank you for your submission.
         </div>
       )}
 
@@ -336,7 +352,7 @@ function CustomerPortal() {
               opacity: (allDocumentsUploaded && !submitting) ? 1 : 0.6
             }}
           >
-            {submitting ? 'Submitting...' : 'Submit Request'}
+            {submitting ? 'Submitting...' : request.reviewStatus === 'REJECTED' ? 'Resubmit Request' : 'Submit Request'}
           </button>
           {!allDocumentsUploaded && (
             <p style={{ marginTop: '10px', color: '#6c757d' }}>

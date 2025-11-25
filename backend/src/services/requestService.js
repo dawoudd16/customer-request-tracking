@@ -220,6 +220,8 @@ async function reopenRequest(requestId, actorId, actorIp = null) {
  * - Only works if status is SUBMITTED
  * - Sets reviewStatus and reviewComment
  * - Records who reviewed and when
+ * - If APPROVED: Automatically changes status to COMPLETED
+ * - If REJECTED: Changes status to IN_PROGRESS so customer can fix and resubmit
  */
 async function reviewRequest(requestId, decision, comment, actorId, actorIp = null) {
   const request = await requestRepository.getRequestById(requestId);
@@ -237,12 +239,25 @@ async function reviewRequest(requestId, decision, comment, actorId, actorIp = nu
 
   const reviewStatus = decision === 'APPROVE' ? REVIEW_STATUS.APPROVED : REVIEW_STATUS.REJECTED;
 
-  await requestRepository.updateRequest(requestId, {
+  // Prepare update data
+  const updateData = {
     reviewStatus: reviewStatus,
     reviewComment: comment || null,
     reviewedBy: actorId,
     reviewedAt: new Date()
-  });
+  };
+
+  // If approved, automatically change status to COMPLETED
+  if (decision === 'APPROVE') {
+    updateData.status = REQUEST_STATUS.COMPLETED;
+  }
+  // If rejected, change status back to IN_PROGRESS so customer can fix and resubmit
+  // Keep reviewStatus as REJECTED so customer can see the rejection comment
+  else if (decision === 'REJECT') {
+    updateData.status = REQUEST_STATUS.IN_PROGRESS;
+  }
+
+  await requestRepository.updateRequest(requestId, updateData);
 
   await auditLogRepository.createAuditLog({
     actorId: actorId,
