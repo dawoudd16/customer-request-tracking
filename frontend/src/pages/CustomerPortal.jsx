@@ -156,6 +156,24 @@ function CustomerPortal() {
         {Object.values(DOCUMENT_TYPES).map((docType) => {
           const isUploaded = documentStatus[docType];
           const isUploading = uploading[docType];
+          // Find the uploaded document for this type
+          const uploadedDoc = documents.find(doc => doc.type === docType);
+
+          const getDocumentUrl = (storagePath) => {
+            const bucketName = 'customer-request-tracking.firebasestorage.app';
+            return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(storagePath)}?alt=media`;
+          };
+
+          const formatDate = (timestamp) => {
+            if (!timestamp) return 'N/A';
+            try {
+              const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+              if (isNaN(date.getTime())) return 'N/A';
+              return date.toLocaleString();
+            } catch (e) {
+              return 'N/A';
+            }
+          };
 
           return (
             <div
@@ -168,7 +186,7 @@ function CustomerPortal() {
                 backgroundColor: isUploaded ? '#d4edda' : '#fff'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isUploaded ? '10px' : '0' }}>
                 <div>
                   <strong>{docType.replace(/_/g, ' ')}</strong>
                   {isUploaded && (
@@ -184,21 +202,24 @@ function CustomerPortal() {
                         const file = e.target.files[0];
                         if (file) {
                           handleFileUpload(docType, file);
+                          // Reset the input so the same file can be selected again
+                          e.target.value = '';
                         }
                       }}
-                      disabled={isUploading || isUploaded}
+                      disabled={isUploading}
                       style={{ display: 'none' }}
                     />
                     <label
                       htmlFor={`file-${docType}`}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: isUploaded ? '#6c757d' : '#007bff',
-                        color: '#fff',
+                        backgroundColor: isUploaded ? '#ffc107' : '#007bff',
+                        color: isUploaded ? '#000' : '#fff',
                         border: 'none',
                         borderRadius: '4px',
-                        cursor: (isUploading || isUploaded) ? 'not-allowed' : 'pointer',
-                        opacity: (isUploading || isUploaded) ? 0.6 : 1
+                        cursor: isUploading ? 'not-allowed' : 'pointer',
+                        opacity: isUploading ? 0.6 : 1,
+                        marginLeft: '10px'
                       }}
                     >
                       {isUploading ? 'Uploading...' : isUploaded ? 'Re-upload' : 'Upload'}
@@ -206,6 +227,94 @@ function CustomerPortal() {
                   </div>
                 )}
               </div>
+              {isUploaded && uploadedDoc && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <p style={{ margin: '0', color: '#6c757d', fontSize: '12px' }}>
+                      Uploaded: {formatDate(uploadedDoc.uploadedAt)}
+                    </p>
+                  </div>
+                  {uploadedDoc.storagePath && (
+                    <div>
+                      <div style={{
+                        border: '1px solid #dee2e6',
+                        borderRadius: '4px',
+                        padding: '10px',
+                        backgroundColor: '#fff',
+                        marginBottom: '10px',
+                        textAlign: 'center',
+                        minHeight: '200px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <div style={{ width: '100%' }}>
+                          {/* Try to show as image first */}
+                          <img
+                            src={getDocumentUrl(uploadedDoc.storagePath)}
+                            alt={docType}
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '400px',
+                              borderRadius: '4px',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              display: 'block',
+                              margin: '0 auto'
+                            }}
+                            onError={(e) => {
+                              // If image fails, try PDF viewer
+                              e.target.style.display = 'none';
+                              const parent = e.target.parentElement;
+                              const docUrl = getDocumentUrl(uploadedDoc.storagePath);
+                              
+                              // Check if it's a PDF or other file type
+                              const iframe = document.createElement('iframe');
+                              iframe.src = docUrl;
+                              iframe.style.cssText = 'width: 100%; height: 500px; border: none; border-radius: 4px;';
+                              iframe.title = docType;
+                              parent.appendChild(iframe);
+                              
+                              // Also add a fallback link
+                              const fallback = document.createElement('div');
+                              fallback.style.cssText = 'margin-top: 10px;';
+                              const link = document.createElement('a');
+                              link.href = docUrl;
+                              link.target = '_blank';
+                              link.rel = 'noopener noreferrer';
+                              link.style.cssText = 'display: inline-block; padding: 8px 16px; background-color: #6c757d; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;';
+                              link.textContent = '📄 Download File';
+                              fallback.appendChild(link);
+                              parent.appendChild(fallback);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <a
+                        href={getDocumentUrl(uploadedDoc.storagePath)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          padding: '6px 12px',
+                          backgroundColor: '#007bff',
+                          color: '#fff',
+                          textDecoration: 'none',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Open in New Tab
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

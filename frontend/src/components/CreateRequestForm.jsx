@@ -44,9 +44,8 @@ function CreateRequestForm({ onSuccess, onCancel }) {
       });
 
       setCreatedLink(result.customerLink);
-      if (onSuccess) {
-        onSuccess(result);
-      }
+      // Don't call onSuccess immediately - let user see the success message first
+      // onSuccess will be called when user clicks "Create Another" or goes back
     } catch (err) {
       setError(err.message);
     } finally {
@@ -102,6 +101,10 @@ function CreateRequestForm({ onSuccess, onCancel }) {
               vehicleId: '',
               notes: ''
             });
+            // Call onSuccess when user wants to create another or go back
+            if (onSuccess) {
+              onSuccess();
+            }
           }}
           style={{
             padding: '8px 16px',
@@ -113,6 +116,25 @@ function CreateRequestForm({ onSuccess, onCancel }) {
           }}
         >
           Create Another
+        </button>
+        <button
+          onClick={() => {
+            // Go back to list and reload requests
+            if (onSuccess) {
+              onSuccess();
+            }
+          }}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#28a745',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            marginLeft: '10px'
+          }}
+        >
+          Back to Dashboard
         </button>
       </div>
     );

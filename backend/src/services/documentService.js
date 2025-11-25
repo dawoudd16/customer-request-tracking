@@ -37,7 +37,9 @@ async function uploadDocument(requestId, documentType, file, actorIp = null) {
   }
 
   // Upload file to Firebase Storage
-  const bucket = storage.bucket();
+  // Explicitly specify bucket name to avoid errors
+  const bucketName = 'customer-request-tracking.firebasestorage.app';
+  const bucket = storage.bucket(bucketName);
   const fileName = `requests/${requestId}/${documentType}/${Date.now()}_${file.originalname}`;
   const fileUpload = bucket.file(fileName);
 
@@ -57,7 +59,27 @@ async function uploadDocument(requestId, documentType, file, actorIp = null) {
   // Make file publicly readable (or use signed URLs in production)
   await fileUpload.makePublic();
 
-  // Create document record
+  // Delete old documents of the same type (if any) to allow re-upload
+  const existingDoc = await documentRepository.getDocumentByType(requestId, documentType);
+  if (existingDoc && existingDoc.id) {
+    // Delete old file from Storage
+    try {
+      if (existingDoc.storagePath) {
+        const oldFile = bucket.file(existingDoc.storagePath);
+        await oldFile.delete().catch(() => {
+          // Ignore errors if file doesn't exist
+        });
+      }
+    } catch (err) {
+      console.warn('Could not delete old file:', err);
+    }
+    
+    // Delete old document record
+    const { db } = require('../firebase');
+    await db.collection('documents').doc(existingDoc.id).delete();
+  }
+
+  // Create new document record
   const document = await documentRepository.createDocument({
     requestId: requestId,
     type: documentType,

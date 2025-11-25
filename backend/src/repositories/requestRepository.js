@@ -62,15 +62,24 @@ async function getRequestByToken(secureToken) {
  * Get all requests assigned to a specific agent
  */
 async function getRequestsByAgentId(agentId) {
+  // Get all requests for the agent, then sort in memory to avoid index requirement
   const snapshot = await db.collection('requests')
     .where('agentId', '==', agentId)
-    .orderBy('createdAt', 'desc')
     .get();
   
-  return snapshot.docs.map(doc => ({
+  // Sort by createdAt descending in memory
+  const requests = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   }));
+  
+  requests.sort((a, b) => {
+    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+    return dateB - dateA; // Descending order (newest first)
+  });
+  
+  return requests;
 }
 
 /**

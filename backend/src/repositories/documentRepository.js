@@ -34,15 +34,25 @@ async function createDocument(documentData) {
  * Get all documents for a request
  */
 async function getDocumentsByRequestId(requestId) {
+  // First get all documents for the request, then sort in memory
+  // This avoids needing a composite index
   const snapshot = await db.collection('documents')
     .where('requestId', '==', requestId)
-    .orderBy('uploadedAt', 'desc')
     .get();
   
-  return snapshot.docs.map(doc => ({
+  // Sort by uploadedAt descending in memory
+  const documents = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   }));
+  
+  documents.sort((a, b) => {
+    const dateA = a.uploadedAt?.toDate ? a.uploadedAt.toDate() : new Date(a.uploadedAt);
+    const dateB = b.uploadedAt?.toDate ? b.uploadedAt.toDate() : new Date(b.uploadedAt);
+    return dateB - dateA; // Descending order (newest first)
+  });
+  
+  return documents;
 }
 
 /**
