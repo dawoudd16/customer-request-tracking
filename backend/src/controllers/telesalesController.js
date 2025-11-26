@@ -351,6 +351,30 @@ async function deleteRequest(req, res) {
   }
 }
 
+/**
+ * Get current user profile
+ * GET /api/telesales/me
+ */
+async function getCurrentUser(req, res) {
+  try {
+    // User info is already attached by authMiddleware
+    res.json({
+      user: {
+        id: req.user.uid,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message 
+    });
+  }
+}
+
 module.exports = {
   createRequest,
   listRequests,
@@ -359,6 +383,7 @@ module.exports = {
   markReminderConfirmed,
   reopenRequest,
   reviewRequest,
-  deleteRequest
+  deleteRequest,
+  getCurrentUser
 };
 

@@ -14,9 +14,42 @@ import ReminderBadge from './ReminderBadge';
  */
 function RequestTable({ requests, onRowClick }) {
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString();
+    if (!timestamp) {
+      console.log('formatDate: timestamp is null/undefined');
+      return 'N/A';
+    }
+    try {
+      let date;
+      if (timestamp?.toDate && typeof timestamp.toDate === 'function') {
+        // Firestore Timestamp
+        date = timestamp.toDate();
+      } else if (timestamp?._seconds) {
+        // Firestore Timestamp as object with _seconds
+        date = new Date(timestamp._seconds * 1000);
+      } else if (timestamp?.seconds) {
+        // Firestore Timestamp as object with seconds
+        date = new Date(timestamp.seconds * 1000);
+      } else if (typeof timestamp === 'string') {
+        // ISO string or other string format
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'number') {
+        // Unix timestamp
+        date = new Date(timestamp);
+      } else {
+        console.log('formatDate: unknown timestamp format', timestamp);
+        return 'N/A';
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.log('formatDate: invalid date', timestamp);
+        return 'N/A';
+      }
+      
+      return date.toLocaleDateString();
+    } catch (e) {
+      console.error('Error formatting date:', e, 'timestamp:', timestamp);
+      return 'N/A';
+    }
   };
 
   return (

@@ -21,11 +21,29 @@ function TeleSalesDashboard() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadRequests();
+    loadUserInfo();
   }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const data = await authenticatedFetch('/api/telesales/me');
+      console.log('User info response:', data);
+      const name = data.user?.name || data.user?.email || 'Agent';
+      console.log('Setting user name to:', name);
+      setUserName(name);
+    } catch (err) {
+      console.error('Error loading user info:', err);
+      // Try to get name from Firebase Auth as fallback
+      if (auth.currentUser) {
+        setUserName(auth.currentUser.displayName || auth.currentUser.email || 'Agent');
+      }
+    }
+  };
 
   const loadRequests = async () => {
     try {
@@ -118,7 +136,12 @@ function TeleSalesDashboard() {
   return (
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Tele-Sales Dashboard</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>Tele-Sales Dashboard</h1>
+          <p style={{ margin: '5px 0 0 0', color: '#6c757d', fontSize: '14px' }}>
+            Welcome, <strong>{userName || 'Loading...'}</strong>
+          </p>
+        </div>
         <button
           onClick={handleLogout}
           style={{

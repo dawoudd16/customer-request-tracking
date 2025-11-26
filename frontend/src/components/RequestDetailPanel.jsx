@@ -75,14 +75,37 @@ function RequestDetailPanel({ request, onUpdate }) {
     setLoading(true);
     setError(null);
     try {
-      await authenticatedFetch(`/api/telesales/requests/${request.id}/reminded`, {
+      // Use req.id (currentRequest) which is the most up-to-date
+      const requestId = req.id;
+      console.log('Confirming reminder for request:', requestId);
+      console.log('Current reminder level before:', req.needsReminderLevel);
+      
+      const response = await authenticatedFetch(`/api/telesales/requests/${requestId}/reminded`, {
         method: 'POST'
       });
-      // Reload full request details
-      const details = await authenticatedFetch(`/api/telesales/requests/${request.id}`);
-      setCurrentRequest(details.request);
-      if (onUpdate) onUpdate();
+      
+      console.log('Reminder confirmed response:', response);
+      console.log('Updated reminder level:', response.request?.needsReminderLevel);
+      
+      // Always reload full request details to get all fields (documents, etc.)
+      const details = await authenticatedFetch(`/api/telesales/requests/${requestId}`);
+      console.log('Reloaded request details:', details.request?.needsReminderLevel);
+      
+      // Force update the state
+      setCurrentRequest({
+        ...details.request,
+        needsReminderLevel: details.request.needsReminderLevel || 0
+      });
+      
+      // Show success message
+      alert('Reminder confirmed! The reminder badge has been cleared.');
+      
+      // Refresh the list to update reminder badges in the table
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (err) {
+      console.error('Error confirming reminder:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -184,12 +207,40 @@ function RequestDetailPanel({ request, onUpdate }) {
   };
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
+    if (!timestamp) {
+      console.log('formatDate: timestamp is null/undefined');
+      return 'N/A';
+    }
     try {
-      const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-      if (isNaN(date.getTime())) return 'N/A';
+      let date;
+      if (timestamp?.toDate && typeof timestamp.toDate === 'function') {
+        // Firestore Timestamp
+        date = timestamp.toDate();
+      } else if (timestamp?._seconds) {
+        // Firestore Timestamp as object with _seconds
+        date = new Date(timestamp._seconds * 1000);
+      } else if (timestamp?.seconds) {
+        // Firestore Timestamp as object with seconds
+        date = new Date(timestamp.seconds * 1000);
+      } else if (typeof timestamp === 'string') {
+        // ISO string or other string format
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'number') {
+        // Unix timestamp
+        date = new Date(timestamp);
+      } else {
+        console.log('formatDate: unknown timestamp format', timestamp);
+        return 'N/A';
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.log('formatDate: invalid date', timestamp);
+        return 'N/A';
+      }
+      
       return date.toLocaleString();
     } catch (e) {
+      console.error('Error formatting date:', e, 'timestamp:', timestamp);
       return 'N/A';
     }
   };
@@ -344,7 +395,14 @@ function RequestDetailPanel({ request, onUpdate }) {
         <p><strong>Status:</strong> {req.status}</p>
         <p><strong>Completion:</strong> {req.completionPercent}%</p>
         <p><strong>Created:</strong> {formatDate(req.createdAt)}</p>
-        <p><strong>Reminder:</strong> <ReminderBadge needsReminderLevel={req.needsReminderLevel || 0} /></p>
+        <p><strong>Reminder:</strong> {req.needsReminderLevel !== undefined && req.needsReminderLevel !== null ? (
+          <ReminderBadge needsReminderLevel={req.needsReminderLevel} />
+        ) : (
+          <span style={{ color: '#6c757d', fontStyle: 'italic' }}>None</span>
+        )}</p>
+        {req.lastReminderAt && (
+          <p><strong>Last Reminder:</strong> {formatDate(req.lastReminderAt)}</p>
+        )}
         <p><strong>Review Status:</strong> {req.reviewStatus || 'PENDING'}</p>
         {req.reviewComment && (
           <p><strong>Review Comment:</strong> {req.reviewComment}</p>

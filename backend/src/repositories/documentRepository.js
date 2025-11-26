@@ -33,6 +33,20 @@ async function createDocument(documentData) {
 /**
  * Get all documents for a request
  */
+/**
+ * Convert Firestore timestamp to ISO string for JSON serialization
+ */
+function convertTimestamp(timestamp) {
+  if (!timestamp) return null;
+  if (timestamp.toDate) {
+    return timestamp.toDate().toISOString();
+  }
+  if (timestamp._seconds) {
+    return new Date(timestamp._seconds * 1000).toISOString();
+  }
+  return timestamp;
+}
+
 async function getDocumentsByRequestId(requestId) {
   // First get all documents for the request, then sort in memory
   // This avoids needing a composite index
@@ -41,14 +55,19 @@ async function getDocumentsByRequestId(requestId) {
     .get();
   
   // Sort by uploadedAt descending in memory
-  const documents = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+  const documents = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Convert Firestore timestamps to ISO strings for JSON serialization
+      uploadedAt: convertTimestamp(data.uploadedAt)
+    };
+  });
   
   documents.sort((a, b) => {
-    const dateA = a.uploadedAt?.toDate ? a.uploadedAt.toDate() : new Date(a.uploadedAt);
-    const dateB = b.uploadedAt?.toDate ? b.uploadedAt.toDate() : new Date(b.uploadedAt);
+    const dateA = a.uploadedAt ? new Date(a.uploadedAt) : new Date(0);
+    const dateB = b.uploadedAt ? new Date(b.uploadedAt) : new Date(0);
     return dateB - dateA; // Descending order (newest first)
   });
   

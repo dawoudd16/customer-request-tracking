@@ -54,7 +54,7 @@ async function processReminders() {
         continue;
       }
 
-      // FIRST REMINDER: 24 hours after creation
+      // FIRST REMINDER: 24 hours after creation (only if currently at NONE level)
       if (request.needsReminderLevel === REMINDER_LEVEL.NONE) {
         const hoursSinceCreation = hoursBetween(createdAt, now);
         
@@ -63,9 +63,8 @@ async function processReminders() {
           firstReminderCount++;
         }
       }
-
-      // SECOND REMINDER: 48 hours after last reminder confirmation
-      if (request.needsReminderLevel === REMINDER_LEVEL.NONE && lastReminderAt) {
+      // SECOND REMINDER: 48 hours after last reminder confirmation (if currently at FIRST level)
+      else if (request.needsReminderLevel === REMINDER_LEVEL.FIRST && lastReminderAt) {
         const hoursSinceLastReminder = hoursBetween(lastReminderAt, now);
         
         if (hoursSinceLastReminder >= 48) {

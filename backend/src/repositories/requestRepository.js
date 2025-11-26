@@ -25,16 +25,38 @@ async function createRequest(requestData) {
 }
 
 /**
+ * Convert Firestore timestamp to ISO string for JSON serialization
+ */
+function convertTimestamp(timestamp) {
+  if (!timestamp) return null;
+  if (timestamp.toDate) {
+    return timestamp.toDate().toISOString();
+  }
+  if (timestamp._seconds) {
+    return new Date(timestamp._seconds * 1000).toISOString();
+  }
+  return timestamp;
+}
+
+/**
  * Get request by ID
  */
+
 async function getRequestById(requestId) {
   const requestDoc = await db.collection('requests').doc(requestId).get();
   if (!requestDoc.exists) {
     return null;
   }
+  const data = requestDoc.data();
   return {
     id: requestDoc.id,
-    ...requestDoc.data()
+    ...data,
+    // Convert Firestore timestamps to ISO strings for JSON serialization
+    createdAt: convertTimestamp(data.createdAt),
+    updatedAt: convertTimestamp(data.updatedAt),
+    expiredAt: convertTimestamp(data.expiredAt),
+    lastReminderAt: convertTimestamp(data.lastReminderAt),
+    reviewedAt: convertTimestamp(data.reviewedAt)
   };
 }
 
@@ -52,9 +74,16 @@ async function getRequestByToken(secureToken) {
   }
   
   const doc = snapshot.docs[0];
+  const data = doc.data();
   return {
     id: doc.id,
-    ...doc.data()
+    ...data,
+    // Convert Firestore timestamps to ISO strings for JSON serialization
+    createdAt: convertTimestamp(data.createdAt),
+    updatedAt: convertTimestamp(data.updatedAt),
+    expiredAt: convertTimestamp(data.expiredAt),
+    lastReminderAt: convertTimestamp(data.lastReminderAt),
+    reviewedAt: convertTimestamp(data.reviewedAt)
   };
 }
 
@@ -68,14 +97,23 @@ async function getRequestsByAgentId(agentId) {
     .get();
   
   // Sort by createdAt descending in memory
-  const requests = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+  const requests = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Convert Firestore timestamps to ISO strings for JSON serialization
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+      expiredAt: convertTimestamp(data.expiredAt),
+      lastReminderAt: convertTimestamp(data.lastReminderAt),
+      reviewedAt: convertTimestamp(data.reviewedAt)
+    };
+  });
   
   requests.sort((a, b) => {
-    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
     return dateB - dateA; // Descending order (newest first)
   });
   
@@ -108,10 +146,19 @@ async function getAllRequests(filters = {}) {
   }
   
   const snapshot = await query.get();
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Convert Firestore timestamps to ISO strings for JSON serialization
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+      expiredAt: convertTimestamp(data.expiredAt),
+      lastReminderAt: convertTimestamp(data.lastReminderAt),
+      reviewedAt: convertTimestamp(data.reviewedAt)
+    };
+  });
 }
 
 /**
@@ -129,17 +176,18 @@ async function updateRequest(requestId, updates) {
 
 /**
  * Get active requests (not COMPLETED, not EXPIRED) for reminder/expiry jobs
+ * Note: Firestore doesn't allow multiple != filters, so we filter in memory
  */
 async function getActiveRequests() {
-  const snapshot = await db.collection('requests')
-    .where('status', '!=', 'COMPLETED')
-    .where('status', '!=', 'EXPIRED')
-    .get();
+  const snapshot = await db.collection('requests').get();
   
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+  // Filter in memory to avoid Firestore limitation with multiple != filters
+  return snapshot.docs
+    .map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    .filter(request => request.status !== 'COMPLETED' && request.status !== 'EXPIRED');
 }
 
 /**

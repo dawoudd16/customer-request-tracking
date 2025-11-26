@@ -18,6 +18,9 @@ router.use(requireRole('agent'));
 // POST /api/telesales/requests
 router.post('/requests', telesalesController.createRequest);
 
+// GET /api/telesales/me
+router.get('/me', telesalesController.getCurrentUser);
+
 // GET /api/telesales/requests
 router.get('/requests', telesalesController.listRequests);
 
