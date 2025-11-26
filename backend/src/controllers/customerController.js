@@ -32,6 +32,11 @@ async function getRequestByToken(req, res) {
 
     // Determine if request is read-only (expired)
     const isReadOnly = request.status === REQUEST_STATUS.EXPIRED;
+    
+    // Hide documents from customer after submission/resubmission
+    // Customers should not see their uploaded files once submitted
+    // But we still return documentStatus so they know what's uploaded
+    const shouldHideDocuments = request.status === REQUEST_STATUS.SUBMITTED;
 
     res.json({
       request: {
@@ -44,7 +49,9 @@ async function getRequestByToken(req, res) {
         expiredAt: request.expiredAt,
         isReadOnly
       },
-      documents,
+      // Return empty documents array if request is submitted (hide file previews/downloads)
+      documents: shouldHideDocuments ? [] : documents,
+      // Keep documentStatus so customer knows upload status, but files are hidden
       documentStatus,
       requiredDocumentTypes: Object.values(DOCUMENT_TYPES)
     });

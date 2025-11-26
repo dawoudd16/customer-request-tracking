@@ -272,12 +272,75 @@ async function reviewRequest(requestId, decision, comment, actorId, actorIp = nu
   return await requestRepository.getRequestById(requestId);
 }
 
+/**
+ * Delete a request and all associated data
+ * 
+ * Business rules:
+ * - Only the agent who owns the request can delete it
+ * - Deletes request, documents, files, and audit logs
+ * - Note: Audit logs are deleted, so deletion won't be logged
+ */
+async function deleteRequest(requestId, actorId, actorIp = null) {
+  const request = await requestRepository.getRequestById(requestId);
+  if (!request) {
+    throw new Error('Request not found');
+  }
+
+  // Verify agent owns this request
+  if (request.agentId !== actorId) {
+    throw new Error('You do not have permission to delete this request');
+  }
+
+  const { db, storage } = require('../firebase');
+  const documentRepository = require('../repositories/documentRepository');
+
+  // 1. Get all documents for this request
+  const documents = await documentRepository.getDocumentsByRequestId(requestId);
+
+  // 2. Delete all files from Storage
+  const bucket = storage.bucket('customer-request-tracking.firebasestorage.app');
+  for (const doc of documents) {
+    if (doc.storagePath) {
+      try {
+        const file = bucket.file(doc.storagePath);
+        await file.delete().catch(() => {
+          // Ignore errors if file doesn't exist
+        });
+      } catch (err) {
+        console.warn(`Could not delete file ${doc.storagePath}:`, err.message);
+      }
+    }
+  }
+
+  // 3. Delete all document records from Firestore
+  for (const doc of documents) {
+    await db.collection('documents').doc(doc.id).delete();
+  }
+
+  // 4. Delete all audit logs for this request
+  const auditLogsSnapshot = await db.collection('auditLogs')
+    .where('requestId', '==', requestId)
+    .get();
+  
+  const auditLogDeletes = auditLogsSnapshot.docs.map(doc => doc.ref.delete());
+  await Promise.all(auditLogDeletes);
+
+  // 5. Delete the request itself
+  await db.collection('requests').doc(requestId).delete();
+
+  // Note: We don't create an audit log for deletion since we're deleting all audit logs
+  // for this request anyway. The deletion is logged in the application logs.
+
+  return { success: true, deletedRequestId: requestId };
+}
+
 module.exports = {
   createRequest,
   getRequestDetails,
   updateRequest,
   markReminderConfirmed,
   reopenRequest,
-  reviewRequest
+  reviewRequest,
+  deleteRequest
 };
 

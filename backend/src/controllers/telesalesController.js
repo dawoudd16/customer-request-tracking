@@ -310,6 +310,47 @@ async function reviewRequest(req, res) {
   }
 }
 
+/**
+ * Delete request
+ * DELETE /api/telesales/requests/:id
+ */
+async function deleteRequest(req, res) {
+  try {
+    const { id } = req.params;
+    const agentId = req.user.uid;
+    const actorIp = req.ip || req.connection.remoteAddress;
+
+    // Verify agent owns this request
+    const currentRequest = await requestRepository.getRequestById(id);
+    if (!currentRequest) {
+      return res.status(404).json({ 
+        error: 'Not Found', 
+        message: 'Request not found' 
+      });
+    }
+
+    if (currentRequest.agentId !== agentId) {
+      return res.status(403).json({ 
+        error: 'Forbidden', 
+        message: 'You do not have permission to delete this request' 
+      });
+    }
+
+    await requestService.deleteRequest(id, agentId, actorIp);
+
+    res.json({
+      message: 'Request deleted successfully',
+      deletedRequestId: id
+    });
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    res.status(400).json({ 
+      error: 'Bad Request', 
+      message: error.message 
+    });
+  }
+}
+
 module.exports = {
   createRequest,
   listRequests,
@@ -317,6 +358,7 @@ module.exports = {
   updateRequest,
   markReminderConfirmed,
   reopenRequest,
-  reviewRequest
+  reviewRequest,
+  deleteRequest
 };
 

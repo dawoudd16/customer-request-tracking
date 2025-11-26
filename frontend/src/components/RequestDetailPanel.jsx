@@ -23,6 +23,8 @@ function RequestDetailPanel({ request, onUpdate }) {
   const [reviewComment, setReviewComment] = useState('');
   const [notes, setNotes] = useState(request.notes || '');
   const [currentRequest, setCurrentRequest] = useState(request);
+  const [showCustomerLink, setShowCustomerLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Sync request prop with state when it changes
   useEffect(() => {
@@ -138,6 +140,49 @@ function RequestDetailPanel({ request, onUpdate }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete this request for ${req.customerName}? This action cannot be undone and will delete all associated documents and files.`)) {
+      return;
+    }
+
+    // Double confirmation for safety
+    if (!confirm('This will permanently delete the request, all uploaded documents, and all associated files. Are you absolutely sure?')) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      // Use req.id (currentRequest) which is the most up-to-date request data
+      const requestId = req.id;
+      console.log('Deleting request:', requestId);
+      
+      const response = await authenticatedFetch(`/api/telesales/requests/${requestId}`, {
+        method: 'DELETE'
+      });
+      
+      console.log('Delete response:', response);
+      
+      // Navigate back to list FIRST, then show success message
+      // This ensures the navigation happens immediately
+      if (onUpdate) {
+        onUpdate();
+      }
+      
+      // Show success message after navigation is triggered
+      setTimeout(() => {
+        alert('Request deleted successfully!');
+      }, 100);
+      
+    } catch (err) {
+      console.error('Delete error:', err);
+      const errorMessage = err.message || 'Failed to delete request. Please try again.';
+      setError(errorMessage);
+      alert(`Error: ${errorMessage}`);
+      setLoading(false);
+    }
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     try {
@@ -146,6 +191,41 @@ function RequestDetailPanel({ request, onUpdate }) {
       return date.toLocaleString();
     } catch (e) {
       return 'N/A';
+    }
+  };
+
+  const getCustomerLink = () => {
+    if (req.secureToken) {
+      const baseUrl = window.location.origin;
+      return `${baseUrl}/customer/${req.secureToken}`;
+    }
+    return null;
+  };
+
+  const handleCopyLink = async () => {
+    const link = getCustomerLink();
+    if (link) {
+      try {
+        await navigator.clipboard.writeText(link);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = link;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setLinkCopied(true);
+          setTimeout(() => setLinkCopied(false), 2000);
+        } catch (e) {
+          alert('Failed to copy link. Please copy manually: ' + link);
+        }
+        document.body.removeChild(textArea);
+      }
     }
   };
 
@@ -188,6 +268,75 @@ function RequestDetailPanel({ request, onUpdate }) {
         {req.customerEmail && <p><strong>Email:</strong> {req.customerEmail}</p>}
         {req.dealerId && <p><strong>Dealer ID:</strong> {req.dealerId}</p>}
         {req.vehicleId && <p><strong>Vehicle ID:</strong> {req.vehicleId}</p>}
+        
+        {/* Customer Link Section */}
+        <div style={{
+          marginTop: '15px',
+          padding: '15px',
+          backgroundColor: '#e7f3ff',
+          borderRadius: '4px',
+          border: '1px solid #b3d9ff'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <strong style={{ color: '#004085' }}>Customer Portal Link</strong>
+            <button
+              onClick={() => setShowCustomerLink(!showCustomerLink)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#007bff',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              {showCustomerLink ? 'Hide Link' : 'Show Link'}
+            </button>
+          </div>
+          {showCustomerLink && getCustomerLink() && (
+            <div>
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'center',
+                marginBottom: '10px'
+              }}>
+                <input
+                  type="text"
+                  value={getCustomerLink()}
+                  readOnly
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff'
+                  }}
+                />
+                <button
+                  onClick={handleCopyLink}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: linkCopied ? '#28a745' : '#007bff',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {linkCopied ? '✓ Copied!' : 'Copy Link'}
+                </button>
+              </div>
+              <p style={{ margin: '0', fontSize: '12px', color: '#6c757d' }}>
+                Send this link to the customer so they can upload their documents.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ marginBottom: '20px' }}>
@@ -334,7 +483,25 @@ function RequestDetailPanel({ request, onUpdate }) {
       </div>
 
       <div style={{ marginTop: '30px', borderTop: '1px solid #dee2e6', paddingTop: '20px' }}>
-        <h3>Actions</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0 }}>Actions</h3>
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#dc3545',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              fontSize: '14px'
+            }}
+          >
+            {loading ? 'Deleting...' : '🗑️ Delete Request'}
+          </button>
+        </div>
 
         {req.status === 'EXPIRED' ? (
           <button

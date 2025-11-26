@@ -92,6 +92,7 @@ function CreateRequestForm({ onSuccess, onCancel }) {
         </button>
         <button
           onClick={() => {
+            // Reset form and stay on create page (don't call onSuccess)
             setCreatedLink(null);
             setFormData({
               customerName: '',
@@ -101,18 +102,16 @@ function CreateRequestForm({ onSuccess, onCancel }) {
               vehicleId: '',
               notes: ''
             });
-            // Call onSuccess when user wants to create another or go back
-            if (onSuccess) {
-              onSuccess();
-            }
+            setError(null);
           }}
           style={{
             padding: '8px 16px',
-            backgroundColor: '#6c757d',
+            backgroundColor: '#28a745',
             color: '#fff',
             border: 'none',
             borderRadius: '4px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            marginRight: '10px'
           }}
         >
           Create Another
@@ -126,12 +125,11 @@ function CreateRequestForm({ onSuccess, onCancel }) {
           }}
           style={{
             padding: '8px 16px',
-            backgroundColor: '#28a745',
+            backgroundColor: '#6c757d',
             color: '#fff',
             border: 'none',
             borderRadius: '4px',
-            cursor: 'pointer',
-            marginLeft: '10px'
+            cursor: 'pointer'
           }}
         >
           Back to Dashboard

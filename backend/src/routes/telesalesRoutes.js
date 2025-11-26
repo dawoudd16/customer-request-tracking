@@ -36,5 +36,8 @@ router.post('/requests/:id/reopen', telesalesController.reopenRequest);
 // POST /api/telesales/requests/:id/review
 router.post('/requests/:id/review', telesalesController.reviewRequest);
 
+// DELETE /api/telesales/requests/:id
+router.delete('/requests/:id', telesalesController.deleteRequest);
+
 module.exports = router;
 

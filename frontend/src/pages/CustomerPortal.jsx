@@ -243,7 +243,7 @@ function CustomerPortal() {
                   </div>
                 )}
               </div>
-              {isUploaded && uploadedDoc && (
+              {isUploaded && uploadedDoc && request.status !== 'SUBMITTED' && (
                 <div style={{
                   marginTop: '10px',
                   padding: '10px',
@@ -329,6 +329,21 @@ function CustomerPortal() {
                       </a>
                     </div>
                   )}
+                </div>
+              )}
+              {isUploaded && request.status === 'SUBMITTED' && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  color: '#856404',
+                  border: '1px solid #ffeaa7'
+                }}>
+                  <p style={{ margin: '0' }}>
+                    ✓ Document uploaded and submitted. Files are no longer visible for security purposes.
+                  </p>
                 </div>
               )}
             </div>
