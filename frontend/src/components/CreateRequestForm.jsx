@@ -194,7 +194,7 @@ function CreateRequestForm({ onSuccess, onCancel }) {
 
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-          Customer Email (Optional)
+          Customer Email
         </label>
         <input
           type="email"
@@ -212,7 +212,7 @@ function CreateRequestForm({ onSuccess, onCancel }) {
 
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-          Dealer ID (Optional)
+          Customer ID
         </label>
         <input
           type="text"
@@ -230,7 +230,7 @@ function CreateRequestForm({ onSuccess, onCancel }) {
 
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-          Vehicle ID (Optional)
+          Vehicle ID
         </label>
         <input
           type="text"
@@ -248,7 +248,7 @@ function CreateRequestForm({ onSuccess, onCancel }) {
 
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-          Notes (Optional)
+          Notes
         </label>
         <textarea
           name="notes"
