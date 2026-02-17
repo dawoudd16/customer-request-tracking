@@ -91,7 +91,7 @@ function TeleSalesDashboard() {
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
+      <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
         <p>Loading...</p>
       </div>
     );
@@ -99,7 +99,7 @@ function TeleSalesDashboard() {
 
   if (selectedRequest) {
     return (
-      <div style={{ padding: '20px' }}>
+      <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
         <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button
             onClick={handleBackToList}
@@ -134,8 +134,8 @@ function TeleSalesDashboard() {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h1 style={{ margin: 0 }}>Tele-Sales Dashboard</h1>
           <p style={{ margin: '5px 0 0 0', color: '#6c757d', fontSize: '14px' }}>
@@ -180,21 +180,25 @@ function TeleSalesDashboard() {
         </div>
       ) : (
         <>
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <button
               onClick={() => setShowCreateForm(true)}
               style={{
-                padding: '12px 24px',
+                padding: '10px 20px',
                 backgroundColor: '#28a745',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '16px'
+                fontSize: '14px',
+                fontWeight: '500'
               }}
             >
-              + Create New Request
+              + New Request
             </button>
+            <span style={{ fontSize: '13px', color: '#6c757d' }}>
+              {requests.length} request{requests.length !== 1 ? 's' : ''}
+            </span>
           </div>
 
           <RequestTable requests={requests} onRowClick={handleRequestClick} />

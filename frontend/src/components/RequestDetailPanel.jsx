@@ -302,14 +302,14 @@ function RequestDetailPanel({ request, onUpdate }) {
 
   return (
     <div style={{
-      padding: '20px',
-      border: '1px solid #dee2e6',
+      padding: '24px',
       borderRadius: '8px',
       backgroundColor: '#fff',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
       maxWidth: '800px',
-      margin: '20px auto'
+      margin: '0 auto'
     }}>
-      <h2>Request Details</h2>
+      <h2 style={{ margin: '0 0 20px 0' }}>Request Details</h2>
 
       {error && (
         <div style={{
@@ -323,8 +323,8 @@ function RequestDetailPanel({ request, onUpdate }) {
         </div>
       )}
 
-      <div style={{ marginBottom: '20px' }}>
-        <h3>Customer Information</h3>
+      <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
+        <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#6c757d', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Customer Information</p>
         <p><strong>Name:</strong> {req.customerName}</p>
         <p><strong>Phone:</strong> {req.customerPhone}</p>
         {req.customerEmail && <p><strong>Email:</strong> {req.customerEmail}</p>}
@@ -401,8 +401,8 @@ function RequestDetailPanel({ request, onUpdate }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: '20px' }}>
-        <h3>Request Information</h3>
+      <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
+        <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#6c757d', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Request Information</p>
         <p><strong>Status:</strong> {req.status}</p>
         <p><strong>Completion:</strong> {req.completionPercent}%</p>
         <p><strong>Created:</strong> {formatDate(req.createdAt)}</p>
@@ -421,8 +421,8 @@ function RequestDetailPanel({ request, onUpdate }) {
       </div>
 
       {req.documents && req.documents.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <h3>Uploaded Documents</h3>
+        <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
+          <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#6c757d', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Uploaded Documents</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
             {req.documents.map((doc) => (
               <div key={doc.id} style={{
@@ -518,8 +518,8 @@ function RequestDetailPanel({ request, onUpdate }) {
         </div>
       )}
 
-      <div style={{ marginBottom: '20px' }}>
-        <h3>Notes</h3>
+      <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
+        <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#6c757d', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Notes</p>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -553,7 +553,7 @@ function RequestDetailPanel({ request, onUpdate }) {
 
       <div style={{ marginTop: '30px', borderTop: '1px solid #dee2e6', paddingTop: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0 }}>Actions</h3>
+          <p style={{ margin: 0, fontSize: '12px', color: '#6c757d', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Actions</p>
           <button
             onClick={handleDelete}
             disabled={loading}
