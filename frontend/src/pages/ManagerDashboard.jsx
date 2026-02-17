@@ -64,6 +64,7 @@ function ManagerDashboard() {
   const [selected, setSelected] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAgentId, setFilterAgentId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [newAgentId, setNewAgentId] = useState('');
   const [reassigning, setReassigning] = useState(false);
@@ -170,7 +171,7 @@ function ManagerDashboard() {
 
         {/* Left: filters + table */}
         <div style={{ flex: 1 }}>
-          {/* Filters */}
+          {/* Filters + Search */}
           <div style={{
             backgroundColor: '#fff',
             padding: '16px',
@@ -182,6 +183,16 @@ function ManagerDashboard() {
             flexWrap: 'wrap',
             alignItems: 'center'
           }}>
+            <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>Search</label>
+              <input
+                type="text"
+                placeholder="Name, phone or REQ-XXXX…"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ width: '100%', padding: '6px 10px', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+            </div>
             <div>
               <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>Filter by Status</label>
               <select
@@ -210,24 +221,45 @@ function ManagerDashboard() {
                 ))}
               </select>
             </div>
-            {(filterStatus || filterAgentId) && (
+            {(filterStatus || filterAgentId || searchTerm) && (
               <button
-                onClick={() => { setFilterStatus(''); setFilterAgentId(''); }}
+                onClick={() => { setFilterStatus(''); setFilterAgentId(''); setSearchTerm(''); }}
                 style={{ padding: '6px 12px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', marginTop: '18px' }}
               >
-                Clear Filters
+                Clear All
               </button>
             )}
             <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#6c757d', marginTop: '18px' }}>
-              {requests.length} request{requests.length !== 1 ? 's' : ''}
+              {(() => {
+                const term = searchTerm.toLowerCase();
+                const filtered = term
+                  ? requests.filter(r =>
+                      r.customerName?.toLowerCase().includes(term) ||
+                      r.customerPhone?.toLowerCase().includes(term) ||
+                      r.requestNumber?.toLowerCase().includes(term)
+                    )
+                  : requests;
+                return `${filtered.length} request${filtered.length !== 1 ? 's' : ''}`;
+              })()}
             </div>
           </div>
 
           {/* Table */}
+          {(() => {
+            const term = searchTerm.toLowerCase();
+            const filtered = term
+              ? requests.filter(r =>
+                  r.customerName?.toLowerCase().includes(term) ||
+                  r.customerPhone?.toLowerCase().includes(term) ||
+                  r.requestNumber?.toLowerCase().includes(term)
+                )
+              : requests;
+            return (
           <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>Req #</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Customer</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Agent</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</th>
@@ -236,13 +268,13 @@ function ManagerDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {requests.length === 0 ? (
+                {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: '#6c757d' }}>
-                      No requests found.
+                    <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#6c757d' }}>
+                      {searchTerm ? 'No requests match your search.' : 'No requests found.'}
                     </td>
                   </tr>
-                ) : requests.map((r, index) => (
+                ) : filtered.map((r, index) => (
                   <tr
                     key={r.id}
                     onClick={() => { setSelected(r); setNewAgentId(''); setReassignError(null); }}
@@ -254,6 +286,11 @@ function ManagerDashboard() {
                     onMouseEnter={e => { if (selected?.id !== r.id) e.currentTarget.style.backgroundColor = '#e8f4fd'; }}
                     onMouseLeave={e => { if (selected?.id !== r.id) e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f8f9fa'; }}
                   >
+                    <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#495057', fontWeight: '600' }}>
+                        {r.requestNumber || '—'}
+                      </span>
+                    </td>
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ fontWeight: '600' }}>{r.customerName}</div>
                       <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '2px' }}>{r.customerPhone}</div>
@@ -271,6 +308,8 @@ function ManagerDashboard() {
               </tbody>
             </table>
           </div>
+            );
+          })()}
         </div>
 
         {/* Right: detail panel */}
@@ -315,6 +354,7 @@ function ManagerDashboard() {
 
             <div style={{ marginBottom: '16px', paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
               <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#6c757d' }}>DETAILS</p>
+              {selected.requestNumber && <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Request #:</strong> <span style={{ fontFamily: 'monospace' }}>{selected.requestNumber}</span></p>}
               <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Agent:</strong> {getAgentName(selected.agentId)}</p>
               <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Completion:</strong> {selected.completionPercent}%</p>
               <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Created:</strong> {formatDate(selected.createdAt)}</p>

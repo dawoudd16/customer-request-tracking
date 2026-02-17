@@ -22,6 +22,7 @@ function TeleSalesDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -180,7 +181,7 @@ function TeleSalesDashboard() {
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowCreateForm(true)}
               style={{
@@ -191,17 +192,55 @@ function TeleSalesDashboard() {
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontWeight: '500'
+                fontWeight: '500',
+                flexShrink: 0
               }}
             >
               + New Request
             </button>
-            <span style={{ fontSize: '13px', color: '#6c757d' }}>
-              {requests.length} request{requests.length !== 1 ? 's' : ''}
+            <input
+              type="text"
+              placeholder="Search by name, phone or REQ-XXXX…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                flex: '1 1 240px',
+                padding: '9px 12px',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            />
+            <span style={{ fontSize: '13px', color: '#6c757d', flexShrink: 0 }}>
+              {(() => {
+                const term = searchTerm.toLowerCase();
+                const count = term
+                  ? requests.filter(r =>
+                      r.customerName?.toLowerCase().includes(term) ||
+                      r.customerPhone?.toLowerCase().includes(term) ||
+                      r.requestNumber?.toLowerCase().includes(term)
+                    ).length
+                  : requests.length;
+                return `${count} request${count !== 1 ? 's' : ''}`;
+              })()}
             </span>
           </div>
 
-          <RequestTable requests={requests} onRowClick={handleRequestClick} />
+          <RequestTable
+            requests={searchTerm
+              ? requests.filter(r => {
+                  const term = searchTerm.toLowerCase();
+                  return (
+                    r.customerName?.toLowerCase().includes(term) ||
+                    r.customerPhone?.toLowerCase().includes(term) ||
+                    r.requestNumber?.toLowerCase().includes(term)
+                  );
+                })
+              : requests
+            }
+            onRowClick={handleRequestClick}
+          />
         </>
       )}
     </div>

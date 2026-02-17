@@ -2,7 +2,7 @@
  * Request Table Component
  *
  * Displays a table of requests for Tele-Sales agents
- * Shows: customer name, status, completion, reminder badge, review status
+ * Shows: request number, customer name, status, completion, reminder badge, review status
  */
 
 import React from 'react';
@@ -73,6 +73,7 @@ function RequestTable({ requests, onRowClick }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
         <thead>
           <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>Req #</th>
             <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Customer</th>
             <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</th>
             <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Completion</th>
@@ -84,7 +85,7 @@ function RequestTable({ requests, onRowClick }) {
         <tbody>
           {requests.length === 0 ? (
             <tr>
-              <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#6c757d' }}>
+              <td colSpan="7" style={{ padding: '30px', textAlign: 'center', color: '#6c757d' }}>
                 No requests found.
               </td>
             </tr>
@@ -100,6 +101,11 @@ function RequestTable({ requests, onRowClick }) {
               onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e8f4fd'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f8f9fa'}
             >
+              <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#495057', fontWeight: '600' }}>
+                  {request.requestNumber || '—'}
+                </span>
+              </td>
               <td style={{ padding: '14px 16px' }}>
                 <div style={{ fontWeight: '600' }}>{request.customerName}</div>
                 <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '2px' }}>{request.customerPhone}</div>

@@ -7,19 +7,30 @@
 const { db } = require('../firebase');
 
 /**
- * Create a new request document
+ * Create a new request document with an auto-incremented request number (REQ-0001)
  */
 async function createRequest(requestData) {
   const requestRef = db.collection('requests').doc();
   const requestId = requestRef.id;
-  
-  await requestRef.set({
-    ...requestData,
-    id: requestId
+  const counterRef = db.collection('counters').doc('requests');
+
+  // Atomically increment the request counter and create the request in one transaction
+  let requestNumber;
+  await db.runTransaction(async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    const count = counterDoc.exists ? (counterDoc.data().count || 0) + 1 : 1;
+    requestNumber = `REQ-${String(count).padStart(4, '0')}`;
+    transaction.set(counterRef, { count }, { merge: true });
+    transaction.set(requestRef, {
+      ...requestData,
+      id: requestId,
+      requestNumber
+    });
   });
-  
+
   return {
     id: requestId,
+    requestNumber,
     ...requestData
   };
 }

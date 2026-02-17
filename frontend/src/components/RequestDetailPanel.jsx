@@ -403,6 +403,9 @@ function RequestDetailPanel({ request, onUpdate }) {
 
       <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
         <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#6c757d', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Request Information</p>
+        {req.requestNumber && (
+          <p><strong>Request #:</strong> <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{req.requestNumber}</span></p>
+        )}
         <p><strong>Status:</strong> {req.status}</p>
         <p><strong>Completion:</strong> {req.completionPercent}%</p>
         <p><strong>Created:</strong> {formatDate(req.createdAt)}</p>
