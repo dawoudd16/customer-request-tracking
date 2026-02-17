@@ -140,6 +140,15 @@ function ManagerDashboard() {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
   }
 
+  const term = searchTerm.toLowerCase();
+  const filteredRequests = term
+    ? requests.filter(r =>
+        r.customerName?.toLowerCase().includes(term) ||
+        r.customerPhone?.toLowerCase().includes(term) ||
+        r.requestNumber?.toLowerCase().includes(term)
+      )
+    : requests;
+
   return (
     <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
 
@@ -230,31 +239,11 @@ function ManagerDashboard() {
               </button>
             )}
             <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#6c757d', marginTop: '18px' }}>
-              {(() => {
-                const term = searchTerm.toLowerCase();
-                const filtered = term
-                  ? requests.filter(r =>
-                      r.customerName?.toLowerCase().includes(term) ||
-                      r.customerPhone?.toLowerCase().includes(term) ||
-                      r.requestNumber?.toLowerCase().includes(term)
-                    )
-                  : requests;
-                return `${filtered.length} request${filtered.length !== 1 ? 's' : ''}`;
-              })()}
+              {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}
             </div>
           </div>
 
           {/* Table */}
-          {(() => {
-            const term = searchTerm.toLowerCase();
-            const filtered = term
-              ? requests.filter(r =>
-                  r.customerName?.toLowerCase().includes(term) ||
-                  r.customerPhone?.toLowerCase().includes(term) ||
-                  r.requestNumber?.toLowerCase().includes(term)
-                )
-              : requests;
-            return (
           <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
               <thead>
@@ -268,13 +257,13 @@ function ManagerDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {filteredRequests.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#6c757d' }}>
                       {searchTerm ? 'No requests match your search.' : 'No requests found.'}
                     </td>
                   </tr>
-                ) : filtered.map((r, index) => (
+                ) : filteredRequests.map((r, index) => (
                   <tr
                     key={r.id}
                     onClick={() => { setSelected(r); setNewAgentId(''); setReassignError(null); }}
@@ -308,8 +297,6 @@ function ManagerDashboard() {
               </tbody>
             </table>
           </div>
-            );
-          })()}
         </div>
 
         {/* Right: detail panel */}
