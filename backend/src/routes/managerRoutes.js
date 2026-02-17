@@ -21,6 +21,9 @@ router.get('/kpis', managerController.getKPIs);
 // GET /api/manager/requests
 router.get('/requests', managerController.listRequests);
 
+// GET /api/manager/agents
+router.get('/agents', managerController.listAgents);
+
 // POST /api/manager/requests/:id/reassign
 router.post('/requests/:id/reassign', managerController.reassignRequest);
 

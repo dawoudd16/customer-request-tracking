@@ -115,10 +115,24 @@ async function findOrCreateCustomer(customerData) {
   };
 }
 
+/**
+ * Get all users with a specific role
+ */
+async function getUsersByRole(role) {
+  const snapshot = await db.collection('users')
+    .where('role', '==', role)
+    .get();
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+}
+
 module.exports = {
   createUser,
   getUserById,
   getUserByEmail,
-  findOrCreateCustomer
+  findOrCreateCustomer,
+  getUsersByRole
 };
 

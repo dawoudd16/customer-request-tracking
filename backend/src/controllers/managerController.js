@@ -8,6 +8,7 @@
 
 const requestRepository = require('../repositories/requestRepository');
 const auditLogRepository = require('../repositories/auditLogRepository');
+const userRepository = require('../repositories/userRepository');
 const requestService = require('../services/requestService');
 
 /**
@@ -84,29 +85,62 @@ async function reassignRequest(req, res) {
   try {
     const { id } = req.params;
     const { newAgentId } = req.body;
+    const managerId = req.user.uid;
+    const actorIp = req.ip || req.connection.remoteAddress;
 
     if (!newAgentId) {
-      return res.status(400).json({ 
-        error: 'Bad Request', 
-        message: 'newAgentId is required' 
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'newAgentId is required'
       });
     }
 
-    // TODO: Verify newAgentId exists and is an agent
-    // TODO: Update request.agentId
-    // TODO: Create audit log
+    // Verify request exists
+    const request = await requestRepository.getRequestById(id);
+    if (!request) {
+      return res.status(404).json({ error: 'Not Found', message: 'Request not found' });
+    }
 
-    res.json({ 
-      message: 'Reassignment feature coming in version 2',
+    // Verify new agent exists and is actually an agent
+    const newAgent = await userRepository.getUserById(newAgentId);
+    if (!newAgent || newAgent.role !== 'agent') {
+      return res.status(400).json({ error: 'Bad Request', message: 'Invalid agent' });
+    }
+
+    const oldAgentId = request.agentId;
+
+    await requestRepository.updateRequest(id, { agentId: newAgentId });
+
+    await auditLogRepository.createAuditLog({
+      actorId: managerId,
+      action: 'REQUEST_REASSIGNED',
       requestId: id,
-      newAgentId 
+      ip: actorIp,
+      metadata: { oldAgentId, newAgentId, newAgentName: newAgent.name }
     });
+
+    const updatedRequest = await requestRepository.getRequestById(id);
+    res.json({ message: 'Request reassigned successfully', request: updatedRequest });
   } catch (error) {
     console.error('Error reassigning request:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
-      message: error.message 
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: error.message
     });
+  }
+}
+
+/**
+ * List all agents
+ * GET /api/manager/agents
+ */
+async function listAgents(req, res) {
+  try {
+    const agents = await userRepository.getUsersByRole('agent');
+    res.json({ agents: agents.map(a => ({ id: a.id, name: a.name, email: a.email })) });
+  } catch (error) {
+    console.error('Error listing agents:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 }
 
@@ -167,6 +201,7 @@ async function getAuditLog(req, res) {
 module.exports = {
   getKPIs,
   listRequests,
+  listAgents,
   reassignRequest,
   reopenRequest,
   getAuditLog

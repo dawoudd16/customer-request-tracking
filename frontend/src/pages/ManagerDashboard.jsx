@@ -1,140 +1,367 @@
 /**
- * Manager Dashboard Page
- * 
- * Version 1: Stub/placeholder for Manager features
- * Version 2: Full implementation with KPIs, filters, reassignment, audit logs
+ * Manager Dashboard
+ *
+ * Provides an overview of all requests across all agents.
+ * Features: KPI cards, filterable requests table, request detail panel, reassignment.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseClient';
 import { authenticatedFetch } from '../utils/api';
 
+const STATUS_COLORS = {
+  OPEN:        { bg: '#d1ecf1', color: '#0c5460' },
+  IN_PROGRESS: { bg: '#fff3cd', color: '#856404' },
+  SUBMITTED:   { bg: '#cce5ff', color: '#004085' },
+  COMPLETED:   { bg: '#d4edda', color: '#155724' },
+  EXPIRED:     { bg: '#f8d7da', color: '#721c24' }
+};
+
+const REVIEW_COLORS = {
+  PENDING:  { bg: '#e2e3e5', color: '#383d41' },
+  APPROVED: { bg: '#d4edda', color: '#155724' },
+  REJECTED: { bg: '#f8d7da', color: '#721c24' }
+};
+
+function StatusBadge({ status, colorMap }) {
+  const style = colorMap[status] || { bg: '#e2e3e5', color: '#383d41' };
+  return (
+    <span style={{
+      padding: '3px 8px',
+      borderRadius: '12px',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      backgroundColor: style.bg,
+      color: style.color
+    }}>
+      {status}
+    </span>
+  );
+}
+
+function KpiCard({ label, value, color }) {
+  return (
+    <div style={{
+      padding: '20px',
+      backgroundColor: '#fff',
+      borderRadius: '8px',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+      borderTop: `4px solid ${color}`,
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '32px', fontWeight: 'bold', color }}>{value ?? '—'}</div>
+      <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '4px' }}>{label}</div>
+    </div>
+  );
+}
+
 function ManagerDashboard() {
   const [kpis, setKpis] = useState(null);
+  const [requests, setRequests] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterAgentId, setFilterAgentId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [newAgentId, setNewAgentId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignError, setReassignError] = useState(null);
   const navigate = useNavigate();
 
+  const loadKPIs = async () => {
+    const data = await authenticatedFetch('/api/manager/kpis');
+    setKpis(data.kpis);
+  };
+
+  const loadAgents = async () => {
+    const data = await authenticatedFetch('/api/manager/agents');
+    setAgents(data.agents);
+  };
+
+  const loadRequests = useCallback(async () => {
+    const params = [];
+    if (filterStatus) params.push(`status=${filterStatus}`);
+    if (filterAgentId) params.push(`agentId=${filterAgentId}`);
+    const url = '/api/manager/requests' + (params.length ? '?' + params.join('&') : '');
+    const data = await authenticatedFetch(url);
+    setRequests(data.requests);
+  }, [filterStatus, filterAgentId]);
+
+  // Initial load
   useEffect(() => {
-    loadKPIs();
+    Promise.all([loadKPIs(), loadAgents(), loadRequests()]).finally(() => setLoading(false));
   }, []);
 
-  const loadKPIs = async () => {
+  // Reload requests when filters change
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate('/login');
+  };
+
+  const handleReassign = async () => {
+    if (!newAgentId || !selected) return;
+    setReassigning(true);
+    setReassignError(null);
     try {
-      const data = await authenticatedFetch('/api/manager/kpis');
-      setKpis(data.kpis);
+      await authenticatedFetch(`/api/manager/requests/${selected.id}/reassign`, {
+        method: 'POST',
+        body: JSON.stringify({ newAgentId })
+      });
+      await Promise.all([loadKPIs(), loadRequests()]);
+      // Update selected with new agent name
+      const newAgent = agents.find(a => a.id === newAgentId);
+      setSelected(prev => ({ ...prev, agentId: newAgentId, agentName: newAgent?.name }));
+      setNewAgentId('');
     } catch (err) {
-      console.error('Error loading KPIs:', err);
-      if (err.message.includes('Unauthorized') || err.message.includes('token')) {
-        navigate('/login');
-      }
+      setReassignError(err.message);
     } finally {
-      setLoading(false);
+      setReassigning(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/login');
-    } catch (err) {
-      console.error('Error signing out:', err);
-    }
+  const formatDate = (ts) => {
+    if (!ts) return 'N/A';
+    try { return new Date(ts).toLocaleDateString(); } catch { return 'N/A'; }
+  };
+
+  const getAgentName = (agentId) => {
+    const agent = agents.find(a => a.id === agentId);
+    return agent ? agent.name : agentId?.slice(0, 8) + '…';
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Manager Dashboard</h1>
+    <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h1 style={{ margin: 0 }}>Manager Dashboard</h1>
         <button
           onClick={handleLogout}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#dc3545',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
           Logout
         </button>
       </div>
 
-      <div style={{
-        padding: '20px',
-        backgroundColor: '#fff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <h2>Key Performance Indicators</h2>
-        <p style={{ color: '#6c757d', fontStyle: 'italic' }}>
-          Version 1: Basic KPI display. Full features coming in version 2.
-        </p>
+      {/* KPI Cards */}
+      {kpis && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <KpiCard label="Total"       value={kpis.total}       color="#6c757d" />
+          <KpiCard label="Open"        value={kpis.open}        color="#17a2b8" />
+          <KpiCard label="In Progress" value={kpis.inProgress}  color="#ffc107" />
+          <KpiCard label="Submitted"   value={kpis.submitted}   color="#007bff" />
+          <KpiCard label="Approved"    value={kpis.approved}    color="#28a745" />
+          <KpiCard label="Rejected"    value={kpis.rejected}    color="#dc3545" />
+          <KpiCard label="Expired"     value={kpis.expired}     color="#6c757d" />
+        </div>
+      )}
 
-        {kpis && (
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+
+        {/* Left: filters + table */}
+        <div style={{ flex: 1 }}>
+          {/* Filters */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '20px',
-            marginTop: '20px'
+            backgroundColor: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+            marginBottom: '16px',
+            display: 'flex',
+            gap: '16px',
+            flexWrap: 'wrap',
+            alignItems: 'center'
           }}>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{kpis.total}</div>
-              <div style={{ color: '#6c757d' }}>Total Requests</div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>Filter by Status</label>
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
+                style={{ padding: '6px 10px', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '14px' }}
+              >
+                <option value="">All Statuses</option>
+                <option value="OPEN">Open</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="SUBMITTED">Submitted</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="EXPIRED">Expired</option>
+              </select>
             </div>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{kpis.open}</div>
-              <div style={{ color: '#6c757d' }}>Open</div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>Filter by Agent</label>
+              <select
+                value={filterAgentId}
+                onChange={e => setFilterAgentId(e.target.value)}
+                style={{ padding: '6px 10px', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '14px' }}
+              >
+                <option value="">All Agents</option>
+                {agents.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
             </div>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{kpis.submitted}</div>
-              <div style={{ color: '#6c757d' }}>Submitted</div>
+            {(filterStatus || filterAgentId) && (
+              <button
+                onClick={() => { setFilterStatus(''); setFilterAgentId(''); }}
+                style={{ padding: '6px 12px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', marginTop: '18px' }}
+              >
+                Clear Filters
+              </button>
+            )}
+            <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#6c757d', marginTop: '18px' }}>
+              {requests.length} request{requests.length !== 1 ? 's' : ''}
             </div>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{kpis.approved}</div>
-              <div style={{ color: '#6c757d' }}>Approved</div>
+          </div>
+
+          {/* Table */}
+          <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Customer</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Agent</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Review</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: '#6c757d' }}>
+                      No requests found.
+                    </td>
+                  </tr>
+                ) : requests.map(r => (
+                  <tr
+                    key={r.id}
+                    onClick={() => { setSelected(r); setNewAgentId(''); setReassignError(null); }}
+                    style={{
+                      borderBottom: '1px solid #dee2e6',
+                      cursor: 'pointer',
+                      backgroundColor: selected?.id === r.id ? '#e8f4fd' : 'transparent'
+                    }}
+                    onMouseEnter={e => { if (selected?.id !== r.id) e.currentTarget.style.backgroundColor = '#f8f9fa'; }}
+                    onMouseLeave={e => { if (selected?.id !== r.id) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: '500' }}>{r.customerName}</div>
+                      <div style={{ fontSize: '12px', color: '#6c757d' }}>{r.customerPhone}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#495057' }}>{getAgentName(r.agentId)}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <StatusBadge status={r.status} colorMap={STATUS_COLORS} />
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <StatusBadge status={r.reviewStatus || 'PENDING'} colorMap={REVIEW_COLORS} />
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#6c757d', whiteSpace: 'nowrap' }}>{formatDate(r.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right: detail panel */}
+        {selected && (
+          <div style={{
+            width: '340px',
+            flexShrink: 0,
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+            padding: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0 }}>Request Detail</h3>
+              <button
+                onClick={() => setSelected(null)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#6c757d' }}
+              >
+                ✕
+              </button>
             </div>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{kpis.rejected}</div>
-              <div style={{ color: '#6c757d' }}>Rejected</div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#6c757d' }}>CUSTOMER</p>
+              <p style={{ margin: '0 0 4px', fontWeight: '600' }}>{selected.customerName}</p>
+              <p style={{ margin: '0 0 4px', fontSize: '14px' }}>{selected.customerPhone}</p>
+              {selected.customerEmail && <p style={{ margin: '0', fontSize: '14px' }}>{selected.customerEmail}</p>}
             </div>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{kpis.expired}</div>
-              <div style={{ color: '#6c757d' }}>Expired</div>
+
+            <div style={{ marginBottom: '16px', paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#6c757d' }}>STATUS</p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <StatusBadge status={selected.status} colorMap={STATUS_COLORS} />
+                <StatusBadge status={selected.reviewStatus || 'PENDING'} colorMap={REVIEW_COLORS} />
+              </div>
+              {selected.reviewComment && (
+                <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#495057', fontStyle: 'italic' }}>
+                  "{selected.reviewComment}"
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '16px', paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#6c757d' }}>DETAILS</p>
+              <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Agent:</strong> {getAgentName(selected.agentId)}</p>
+              <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Completion:</strong> {selected.completionPercent}%</p>
+              <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Created:</strong> {formatDate(selected.createdAt)}</p>
+              {selected.dealerId && <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Customer ID:</strong> {selected.dealerId}</p>}
+              {selected.vehicleId && <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Vehicle ID:</strong> {selected.vehicleId}</p>}
+              {selected.notes && <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#495057' }}><strong>Notes:</strong> {selected.notes}</p>}
+            </div>
+
+            {/* Reassign */}
+            <div style={{ paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
+              <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#6c757d' }}>REASSIGN TO ANOTHER AGENT</p>
+              <select
+                value={newAgentId}
+                onChange={e => setNewAgentId(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '14px', marginBottom: '8px' }}
+              >
+                <option value="">Select an agent…</option>
+                {agents.filter(a => a.id !== selected.agentId).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              {reassignError && (
+                <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#dc3545' }}>{reassignError}</p>
+              )}
+              <button
+                onClick={handleReassign}
+                disabled={!newAgentId || reassigning}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  backgroundColor: newAgentId ? '#007bff' : '#6c757d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: newAgentId && !reassigning ? 'pointer' : 'not-allowed',
+                  opacity: reassigning ? 0.6 : 1,
+                  fontSize: '14px'
+                }}
+              >
+                {reassigning ? 'Reassigning…' : 'Reassign Request'}
+              </button>
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{
-        padding: '20px',
-        backgroundColor: '#fff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <h2>Coming in Version 2</h2>
-        <ul>
-          <li>Advanced filtering and search</li>
-          <li>Request reassignment</li>
-          <li>Detailed audit logs</li>
-          <li>Export functionality</li>
-          <li>Analytics and reporting</li>
-        </ul>
       </div>
     </div>
   );
 }
 
 export default ManagerDashboard;
-

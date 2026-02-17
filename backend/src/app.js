@@ -12,6 +12,7 @@ const customerRoutes = require('./routes/customerRoutes');
 const telesalesRoutes = require('./routes/telesalesRoutes');
 const managerRoutes = require('./routes/managerRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
+const { verifyFirebaseToken } = require('./authMiddleware');
 
 const app = express();
 
@@ -29,6 +30,11 @@ app.set('trust proxy', true);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Shared auth endpoint — returns current user's role (used by login page for redirect)
+app.get('/api/auth/me', verifyFirebaseToken, (req, res) => {
+  res.json({ user: { id: req.user.uid, email: req.user.email, role: req.user.role, name: req.user.name } });
 });
 
 // API Routes

@@ -23,10 +23,18 @@ function LoginPage() {
     setError(null);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // On successful login, redirect to Tele-Sales dashboard
-      // In version 2, you can check user role and redirect accordingly
-      navigate('/telesales');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Get the user's role from the backend and redirect accordingly
+      const token = await userCredential.user.getIdToken();
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.user?.role === 'manager') {
+        navigate('/manager');
+      } else {
+        navigate('/telesales');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
