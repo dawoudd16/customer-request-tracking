@@ -42,6 +42,7 @@ async function getRequestByToken(req, res) {
         completionPercent: request.completionPercent,
         reviewStatus: request.reviewStatus,
         reviewComment: request.reviewComment,
+        rejectedDocumentTypes: request.rejectedDocumentTypes || [],
         expiredAt: request.expiredAt,
         isReadOnly
       },

@@ -263,39 +263,46 @@ async function reviewRequest(req, res) {
     const { id } = req.params;
     const agentId = req.user.uid;
     const actorIp = req.ip || req.connection.remoteAddress;
-    const { decision, comment } = req.body;
+    const { decision, comment, rejectedDocumentTypes } = req.body;
 
     if (!decision || !['APPROVE', 'REJECT'].includes(decision)) {
-      return res.status(400).json({ 
-        error: 'Bad Request', 
-        message: 'decision must be APPROVE or REJECT' 
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'decision must be APPROVE or REJECT'
       });
     }
 
     if (decision === 'REJECT' && !comment) {
-      return res.status(400).json({ 
-        error: 'Bad Request', 
-        message: 'comment is required for rejection' 
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'comment is required for rejection'
+      });
+    }
+
+    if (decision === 'REJECT' && (!rejectedDocumentTypes || rejectedDocumentTypes.length === 0)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'At least one document must be selected for the customer to re-upload'
       });
     }
 
     // Verify agent owns this request
     const currentRequest = await requestRepository.getRequestById(id);
     if (!currentRequest) {
-      return res.status(404).json({ 
-        error: 'Not Found', 
-        message: 'Request not found' 
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Request not found'
       });
     }
 
     if (currentRequest.agentId !== agentId) {
-      return res.status(403).json({ 
-        error: 'Forbidden', 
-        message: 'You do not have access to this request' 
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have access to this request'
       });
     }
 
-    const updatedRequest = await requestService.reviewRequest(id, decision, comment, agentId, actorIp);
+    const updatedRequest = await requestService.reviewRequest(id, decision, comment, agentId, actorIp, rejectedDocumentTypes || []);
 
     res.json({
       message: `Request ${decision === 'APPROVE' ? 'approved' : 'rejected'} successfully`,

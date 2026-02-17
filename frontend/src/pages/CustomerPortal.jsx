@@ -99,6 +99,10 @@ function CustomerPortal() {
   }
 
   const allDocumentsUploaded = Object.values(documentStatus).every(Boolean);
+  // After rejection, the customer must re-upload ALL flagged documents before resubmitting
+  const allRejectedDocsReuploaded = request.reviewStatus !== 'REJECTED' ||
+    (request.rejectedDocumentTypes || []).every(docType => recentlyUploaded.has(docType));
+  const canSubmit = allDocumentsUploaded && allRejectedDocsReuploaded;
   // Make read-only if expired, completed, or already approved
   const isReadOnly = request.isReadOnly ||
                      request.status === 'EXPIRED' ||
@@ -191,6 +195,16 @@ function CustomerPortal() {
           // Find the uploaded document for this type
           const uploadedDoc = documents.find(doc => doc.type === docType);
 
+          // Per-document rejection logic
+          const isRejectedDoc = request.reviewStatus === 'REJECTED' &&
+                                request.rejectedDocumentTypes?.includes(docType);
+          const isAcceptedDoc = request.reviewStatus === 'REJECTED' &&
+                                request.rejectedDocumentTypes?.length > 0 &&
+                                !request.rejectedDocumentTypes?.includes(docType);
+
+          // This doc is read-only if globally read-only OR it was accepted (not flagged for re-upload)
+          const isDocReadOnly = isReadOnly || isAcceptedDoc;
+
           const getDocumentUrl = (doc) => {
             // Use backend proxy — streams via Admin SDK, always has access
             return `/api/customer/requests/${token}/files/${doc.id}`;
@@ -212,20 +226,26 @@ function CustomerPortal() {
               key={docType}
               style={{
                 padding: '15px',
-                border: '1px solid #dee2e6',
+                border: isRejectedDoc ? '2px solid #dc3545' : '1px solid #dee2e6',
                 borderRadius: '4px',
                 marginBottom: '10px',
-                backgroundColor: isUploaded ? '#d4edda' : '#fff'
+                backgroundColor: isAcceptedDoc ? '#d4edda' : isUploaded ? '#d4edda' : '#fff'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isUploaded ? '10px' : '0' }}>
                 <div>
                   <strong>{docType.replace(/_/g, ' ')}</strong>
-                  {isUploaded && (
+                  {isUploaded && !isRejectedDoc && (
                     <span style={{ marginLeft: '10px', color: '#28a745' }}>✓ Uploaded</span>
                   )}
+                  {isRejectedDoc && (
+                    <span style={{ marginLeft: '10px', color: '#dc3545', fontWeight: 'bold' }}>⚠ Action required</span>
+                  )}
+                  {isAcceptedDoc && (
+                    <span style={{ marginLeft: '10px', color: '#28a745' }}>✓ Accepted</span>
+                  )}
                 </div>
-                {!isReadOnly && (
+                {!isDocReadOnly && (
                   <div>
                     <input
                       type="file"
@@ -245,8 +265,8 @@ function CustomerPortal() {
                       htmlFor={`file-${docType}`}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: isUploaded ? '#ffc107' : '#007bff',
-                        color: isUploaded ? '#000' : '#fff',
+                        backgroundColor: isRejectedDoc ? '#dc3545' : isUploaded ? '#ffc107' : '#007bff',
+                        color: (isRejectedDoc || !isUploaded) ? '#fff' : '#000',
                         border: 'none',
                         borderRadius: '4px',
                         cursor: isUploading ? 'not-allowed' : 'pointer',
@@ -254,13 +274,13 @@ function CustomerPortal() {
                         marginLeft: '10px'
                       }}
                     >
-                      {isUploading ? 'Uploading...' : isUploaded ? 'Re-upload' : 'Upload'}
+                      {isUploading ? 'Uploading...' : isRejectedDoc ? 'Re-upload Required' : isUploaded ? 'Re-upload' : 'Upload'}
                     </label>
                   </div>
                 )}
               </div>
               {isUploaded && uploadedDoc && (
-                (request.status !== 'SUBMITTED' && request.reviewStatus !== 'REJECTED') ||
+                (request.status !== 'SUBMITTED' && !isAcceptedDoc && request.reviewStatus !== 'REJECTED') ||
                 recentlyUploaded.has(docType)
               ) && (
                 <div style={{
@@ -365,6 +385,36 @@ function CustomerPortal() {
                   </p>
                 </div>
               )}
+              {isUploaded && isAcceptedDoc && !recentlyUploaded.has(docType) && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: '#d4edda',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  color: '#155724',
+                  border: '1px solid #c3e6cb'
+                }}>
+                  <p style={{ margin: '0' }}>
+                    ✓ This document was accepted. No action needed.
+                  </p>
+                </div>
+              )}
+              {isUploaded && isRejectedDoc && !recentlyUploaded.has(docType) && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: '#f8d7da',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  color: '#721c24',
+                  border: '1px solid #f5c6cb'
+                }}>
+                  <p style={{ margin: '0' }}>
+                    ✗ This document needs to be re-uploaded. Please use the button above.
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}
@@ -374,16 +424,16 @@ function CustomerPortal() {
         <div style={{ textAlign: 'center', marginTop: '30px' }}>
           <button
             onClick={handleSubmit}
-            disabled={!allDocumentsUploaded || submitting || request.status === 'SUBMITTED'}
+            disabled={!canSubmit || submitting || request.status === 'SUBMITTED'}
             style={{
               padding: '15px 40px',
               fontSize: '18px',
-              backgroundColor: allDocumentsUploaded ? '#28a745' : '#6c757d',
+              backgroundColor: canSubmit ? '#28a745' : '#6c757d',
               color: '#fff',
               border: 'none',
               borderRadius: '4px',
-              cursor: (allDocumentsUploaded && !submitting) ? 'pointer' : 'not-allowed',
-              opacity: (allDocumentsUploaded && !submitting) ? 1 : 0.6
+              cursor: (canSubmit && !submitting) ? 'pointer' : 'not-allowed',
+              opacity: (canSubmit && !submitting) ? 1 : 0.6
             }}
           >
             {submitting ? 'Submitting...' : request.reviewStatus === 'REJECTED' ? 'Resubmit Request' : 'Submit Request'}
@@ -391,6 +441,11 @@ function CustomerPortal() {
           {!allDocumentsUploaded && (
             <p style={{ marginTop: '10px', color: '#6c757d' }}>
               Please upload all required documents before submitting.
+            </p>
+          )}
+          {allDocumentsUploaded && !allRejectedDocsReuploaded && (
+            <p style={{ marginTop: '10px', color: '#dc3545' }}>
+              Please re-upload the flagged documents before resubmitting.
             </p>
           )}
         </div>

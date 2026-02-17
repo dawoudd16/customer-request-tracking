@@ -229,7 +229,7 @@ async function reopenRequest(requestId, actorId, actorIp = null) {
  * - If APPROVED: Automatically changes status to COMPLETED
  * - If REJECTED: Changes status to IN_PROGRESS so customer can fix and resubmit
  */
-async function reviewRequest(requestId, decision, comment, actorId, actorIp = null) {
+async function reviewRequest(requestId, decision, comment, actorId, actorIp = null, rejectedDocumentTypes = []) {
   const request = await requestRepository.getRequestById(requestId);
   if (!request) {
     throw new Error('Request not found');
@@ -241,6 +241,10 @@ async function reviewRequest(requestId, decision, comment, actorId, actorIp = nu
 
   if (decision === 'REJECT' && !comment) {
     throw new Error('Rejection comment is required');
+  }
+
+  if (decision === 'REJECT' && (!rejectedDocumentTypes || rejectedDocumentTypes.length === 0)) {
+    throw new Error('At least one document must be selected for the customer to re-upload');
   }
 
   const reviewStatus = decision === 'APPROVE' ? REVIEW_STATUS.APPROVED : REVIEW_STATUS.REJECTED;
@@ -256,11 +260,13 @@ async function reviewRequest(requestId, decision, comment, actorId, actorIp = nu
   // If approved, automatically change status to COMPLETED
   if (decision === 'APPROVE') {
     updateData.status = REQUEST_STATUS.COMPLETED;
+    updateData.rejectedDocumentTypes = [];
   }
   // If rejected, change status back to IN_PROGRESS so customer can fix and resubmit
   // Keep reviewStatus as REJECTED so customer can see the rejection comment
   else if (decision === 'REJECT') {
     updateData.status = REQUEST_STATUS.IN_PROGRESS;
+    updateData.rejectedDocumentTypes = rejectedDocumentTypes;
   }
 
   await requestRepository.updateRequest(requestId, updateData);
@@ -271,7 +277,8 @@ async function reviewRequest(requestId, decision, comment, actorId, actorIp = nu
     requestId: requestId,
     ip: actorIp,
     metadata: {
-      comment: comment
+      comment: comment,
+      rejectedDocumentTypes: rejectedDocumentTypes
     }
   });
 

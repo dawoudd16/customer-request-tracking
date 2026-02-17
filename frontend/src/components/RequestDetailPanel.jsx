@@ -12,6 +12,8 @@ import React, { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
 import ReminderBadge from './ReminderBadge';
 
+const DOCUMENT_TYPES = ['ID', 'LICENCE', 'PROOF_OF_ADDRESS', 'BANK_STATEMENT'];
+
 /**
  * @param {Object} request - Request object with full details
  * @param {Function} onUpdate - Callback when request is updated
@@ -21,6 +23,7 @@ function RequestDetailPanel({ request, onUpdate }) {
   const [error, setError] = useState(null);
   const [reviewDecision, setReviewDecision] = useState('');
   const [reviewComment, setReviewComment] = useState('');
+  const [rejectedDocTypes, setRejectedDocTypes] = useState([]);
   const [notes, setNotes] = useState(request.notes || '');
   const [currentRequest, setCurrentRequest] = useState(request);
   const [showCustomerLink, setShowCustomerLink] = useState(false);
@@ -139,6 +142,10 @@ function RequestDetailPanel({ request, onUpdate }) {
       setError('Comment is required for rejection');
       return;
     }
+    if (reviewDecision === 'REJECT' && rejectedDocTypes.length === 0) {
+      setError('Please select at least one document for the customer to re-upload');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -147,11 +154,13 @@ function RequestDetailPanel({ request, onUpdate }) {
         method: 'POST',
         body: JSON.stringify({
           decision: reviewDecision,
-          comment: reviewComment
+          comment: reviewComment,
+          rejectedDocumentTypes: reviewDecision === 'REJECT' ? rejectedDocTypes : []
         })
       });
       setReviewDecision('');
       setReviewComment('');
+      setRejectedDocTypes([]);
       // Reload full request details
       const details = await authenticatedFetch(`/api/telesales/requests/${request.id}`);
       setCurrentRequest(details.request);
@@ -629,27 +638,66 @@ function RequestDetailPanel({ request, onUpdate }) {
               }}>
                 <h4>Review Request</h4>
                 <div style={{ marginBottom: '10px' }}>
-                  <label style={{ marginRight: '10px' }}>
+                  <label style={{ marginRight: '20px', cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="reviewDecision"
                       value="APPROVE"
                       checked={reviewDecision === 'APPROVE'}
-                      onChange={(e) => setReviewDecision(e.target.value)}
+                      onChange={(e) => { setReviewDecision(e.target.value); setRejectedDocTypes([]); }}
+                      style={{ marginRight: '6px' }}
                     />
                     Approve
                   </label>
-                  <label>
+                  <label style={{ cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="reviewDecision"
                       value="REJECT"
                       checked={reviewDecision === 'REJECT'}
                       onChange={(e) => setReviewDecision(e.target.value)}
+                      style={{ marginRight: '6px' }}
                     />
                     Reject
                   </label>
                 </div>
+
+                {reviewDecision === 'REJECT' && (
+                  <div style={{
+                    marginBottom: '15px',
+                    padding: '12px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '4px',
+                    border: '1px solid #ffc107'
+                  }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                      Which documents must the customer re-upload? <span style={{ color: 'red' }}>*</span>
+                    </label>
+                    {DOCUMENT_TYPES.map(docType => (
+                      <label key={docType} style={{ display: 'block', marginBottom: '6px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={rejectedDocTypes.includes(docType)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setRejectedDocTypes(prev => [...prev, docType]);
+                            } else {
+                              setRejectedDocTypes(prev => prev.filter(t => t !== docType));
+                            }
+                          }}
+                          style={{ marginRight: '8px' }}
+                        />
+                        {docType.replace(/_/g, ' ')}
+                      </label>
+                    ))}
+                    {rejectedDocTypes.length === 0 && (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#856404' }}>
+                        You must select at least one document.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ marginBottom: '10px' }}>
                   <label style={{ display: 'block', marginBottom: '5px' }}>
                     Comment {reviewDecision === 'REJECT' && <span style={{ color: 'red' }}>*</span>}
@@ -658,6 +706,7 @@ function RequestDetailPanel({ request, onUpdate }) {
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
                     rows="3"
+                    placeholder={reviewDecision === 'REJECT' ? 'Explain what the customer needs to fix...' : 'Optional comment'}
                     style={{
                       width: '100%',
                       padding: '8px',
@@ -668,17 +717,18 @@ function RequestDetailPanel({ request, onUpdate }) {
                 </div>
                 <button
                   onClick={handleReview}
-                  disabled={loading}
+                  disabled={loading || (reviewDecision === 'REJECT' && rejectedDocTypes.length === 0)}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: '#007bff',
+                    backgroundColor: reviewDecision === 'REJECT' ? '#dc3545' : '#28a745',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: loading ? 'not-allowed' : 'pointer'
+                    cursor: (loading || (reviewDecision === 'REJECT' && rejectedDocTypes.length === 0)) ? 'not-allowed' : 'pointer',
+                    opacity: (loading || (reviewDecision === 'REJECT' && rejectedDocTypes.length === 0)) ? 0.6 : 1
                   }}
                 >
-                  Submit Review
+                  {reviewDecision === 'REJECT' ? 'Confirm Rejection' : reviewDecision === 'APPROVE' ? 'Confirm Approval' : 'Submit Review'}
                 </button>
               </div>
             )}
