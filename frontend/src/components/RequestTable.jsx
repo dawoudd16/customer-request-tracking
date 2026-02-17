@@ -70,15 +70,15 @@ function RequestTable({ requests, onRowClick }) {
       boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
       overflow: 'hidden'
     }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Customer</th>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Status</th>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Completion</th>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Created</th>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Reminder</th>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>Review</th>
+          <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Customer</th>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</th>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Completion</th>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Created</th>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Reminder</th>
+            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: '#495057', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Review</th>
           </tr>
         </thead>
         <tbody>
@@ -88,27 +88,31 @@ function RequestTable({ requests, onRowClick }) {
                 No requests found.
               </td>
             </tr>
-          ) : requests.map((request) => (
+          ) : requests.map((request, index) => (
             <tr
               key={request.id}
               onClick={() => onRowClick(request)}
-              style={{ borderBottom: '1px solid #dee2e6', cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              style={{
+                borderBottom: '1px solid #dee2e6',
+                cursor: 'pointer',
+                backgroundColor: index % 2 === 0 ? '#fff' : '#f8f9fa'
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e8f4fd'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f8f9fa'}
             >
-              <td style={{ padding: '12px 16px' }}>
-                <div style={{ fontWeight: '500' }}>{request.customerName}</div>
-                <div style={{ fontSize: '12px', color: '#6c757d' }}>{request.customerPhone}</div>
+              <td style={{ padding: '14px 16px' }}>
+                <div style={{ fontWeight: '600' }}>{request.customerName}</div>
+                <div style={{ fontSize: '13px', color: '#6c757d', marginTop: '2px' }}>{request.customerPhone}</div>
               </td>
-              <td style={{ padding: '12px 16px' }}>
+              <td style={{ padding: '14px 16px' }}>
                 <StatusBadge status={request.status} colorMap={STATUS_COLORS} />
               </td>
-              <td style={{ padding: '12px 16px', color: '#495057' }}>{request.completionPercent}%</td>
-              <td style={{ padding: '12px 16px', color: '#6c757d', whiteSpace: 'nowrap' }}>{formatDate(request.createdAt)}</td>
-              <td style={{ padding: '12px 16px' }}>
+              <td style={{ padding: '14px 16px', color: '#495057' }}>{request.completionPercent}%</td>
+              <td style={{ padding: '14px 16px', color: '#6c757d', whiteSpace: 'nowrap' }}>{formatDate(request.createdAt)}</td>
+              <td style={{ padding: '14px 16px' }}>
                 <ReminderBadge needsReminderLevel={request.needsReminderLevel || 0} />
               </td>
-              <td style={{ padding: '12px 16px' }}>
+              <td style={{ padding: '14px 16px' }}>
                 <StatusBadge status={request.reviewStatus || 'PENDING'} colorMap={REVIEW_COLORS} />
               </td>
             </tr>

@@ -83,17 +83,20 @@ function CustomerPortal() {
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p>Loading...</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#6c757d', fontSize: '16px' }}>Loading your request...</p>
       </div>
     );
   }
 
   if (error || !request) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>Request Not Found</h2>
-        <p>{error || 'The request link is invalid or has expired.'}</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', maxWidth: '420px', width: '100%' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔗</div>
+          <h2 style={{ margin: '0 0 8px', color: '#343a40' }}>Request Not Found</h2>
+          <p style={{ margin: 0, color: '#6c757d' }}>{error || 'The request link is invalid or has expired.'}</p>
+        </div>
       </div>
     );
   }
@@ -111,20 +114,26 @@ function CustomerPortal() {
                      request.reviewStatus === 'APPROVED';
 
   return (
+    <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh', padding: '20px 16px' }}>
     <div style={{
       maxWidth: '800px',
-      margin: '0 auto',
-      padding: '20px'
+      margin: '0 auto'
     }}>
-      <h1>Customer Request Portal</h1>
+      {/* Page header */}
+      <div style={{ marginBottom: '20px' }}>
+        <h1 style={{ margin: '0 0 4px', fontSize: '26px', color: '#343a40' }}>Document Upload Portal</h1>
+        <p style={{ margin: 0, color: '#6c757d', fontSize: '15px' }}>Upload your documents securely. You can return to this page any time using the same link.</p>
+      </div>
 
       {request.status === 'EXPIRED' && (
         <div style={{
-          padding: '15px',
+          padding: '14px 18px',
           backgroundColor: '#f8d7da',
           color: '#721c24',
-          borderRadius: '4px',
-          marginBottom: '20px'
+          borderRadius: '8px',
+          marginBottom: '16px',
+          borderLeft: '4px solid #dc3545',
+          fontSize: '15px'
         }}>
           <strong>Your request has expired.</strong> Please contact your sales agent for assistance.
         </div>
@@ -132,30 +141,32 @@ function CustomerPortal() {
 
       {request.status === 'SUBMITTED' && (
         <div style={{
-          padding: '15px',
+          padding: '14px 18px',
           backgroundColor: '#d1ecf1',
           color: '#0c5460',
-          borderRadius: '4px',
-          marginBottom: '20px',
-          borderLeft: '4px solid #17a2b8'
+          borderRadius: '8px',
+          marginBottom: '16px',
+          borderLeft: '4px solid #17a2b8',
+          fontSize: '15px'
         }}>
-          <strong>✓ Your documents have been submitted successfully.</strong>
-          <p style={{ margin: '8px 0 0 0', fontSize: '14px' }}>
+          <strong>Your documents have been submitted successfully.</strong>
+          <p style={{ margin: '6px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
             Our sales team is reviewing your documents and will be in touch with you shortly.
-            If you feel something was submitted incorrectly, please reach out to your sales agent directly.
           </p>
         </div>
       )}
 
       {request.status === 'COMPLETED' && (
         <div style={{
-          padding: '15px',
+          padding: '14px 18px',
           backgroundColor: '#d4edda',
           color: '#155724',
-          borderRadius: '4px',
-          marginBottom: '20px'
+          borderRadius: '8px',
+          marginBottom: '16px',
+          borderLeft: '4px solid #28a745',
+          fontSize: '15px'
         }}>
-          <strong>✓ Your request has been completed!</strong> Thank you for your submission.
+          <strong>Your request has been completed!</strong> Thank you for your submission.
         </div>
       )}
 
@@ -166,27 +177,38 @@ function CustomerPortal() {
 
       <div style={{
         backgroundColor: '#fff',
-        padding: '20px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
+        padding: '20px 24px',
+        borderRadius: '10px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+        marginBottom: '16px'
       }}>
-        <h2>Request Information</h2>
-        <p><strong>Customer Name:</strong> {request.customerName}</p>
-        <p><strong>Status:</strong> {request.status}</p>
-        <p><strong>Completion:</strong> {request.completionPercent}%</p>
+        <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Request Information</p>
+        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#6c757d' }}>Customer Name</p>
+            <p style={{ margin: 0, fontWeight: '600', fontSize: '15px', color: '#343a40' }}>{request.customerName}</p>
+          </div>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#6c757d' }}>Status</p>
+            <p style={{ margin: 0, fontWeight: '600', fontSize: '15px', color: '#343a40' }}>{request.status.replace(/_/g, ' ')}</p>
+          </div>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#6c757d' }}>Completion</p>
+            <p style={{ margin: 0, fontWeight: '600', fontSize: '15px', color: '#343a40' }}>{request.completionPercent}%</p>
+          </div>
+        </div>
       </div>
 
       <div style={{
         backgroundColor: '#fff',
-        padding: '20px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
+        padding: '20px 24px',
+        borderRadius: '10px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+        marginBottom: '16px'
       }}>
-        <h2>Required Documents</h2>
-        <p style={{ color: '#6c757d', fontSize: '14px' }}>
-          Please upload all required documents. You can leave and come back later using the same link.
+        <p style={{ margin: '0 0 4px', fontSize: '12px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Required Documents</p>
+        <p style={{ color: '#6c757d', fontSize: '14px', margin: '0 0 16px' }}>
+          Please upload all required documents. Accepted formats: JPG, PNG, PDF.
         </p>
 
         {Object.values(DOCUMENT_TYPES).map((docType) => {
@@ -225,11 +247,11 @@ function CustomerPortal() {
             <div
               key={docType}
               style={{
-                padding: '15px',
+                padding: '16px',
                 border: isRejectedDoc ? '2px solid #dc3545' : '1px solid #dee2e6',
-                borderRadius: '4px',
-                marginBottom: '10px',
-                backgroundColor: isAcceptedDoc ? '#d4edda' : isUploaded ? '#d4edda' : '#fff'
+                borderRadius: '8px',
+                marginBottom: '12px',
+                backgroundColor: isAcceptedDoc ? '#f0fff4' : isUploaded ? '#f0fff4' : '#fff'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isUploaded ? '10px' : '0' }}>
@@ -421,17 +443,24 @@ function CustomerPortal() {
       </div>
 
       {!isReadOnly && (
-        <div style={{ textAlign: 'center', marginTop: '30px' }}>
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '20px 24px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+          textAlign: 'center'
+        }}>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || submitting || request.status === 'SUBMITTED'}
             style={{
-              padding: '15px 40px',
-              fontSize: '18px',
+              padding: '13px 44px',
+              fontSize: '16px',
+              fontWeight: '600',
               backgroundColor: canSubmit ? '#28a745' : '#6c757d',
               color: '#fff',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '8px',
               cursor: (canSubmit && !submitting) ? 'pointer' : 'not-allowed',
               opacity: (canSubmit && !submitting) ? 1 : 0.6
             }}
@@ -439,17 +468,18 @@ function CustomerPortal() {
             {submitting ? 'Submitting...' : request.reviewStatus === 'REJECTED' ? 'Resubmit Request' : 'Submit Request'}
           </button>
           {!allDocumentsUploaded && (
-            <p style={{ marginTop: '10px', color: '#6c757d' }}>
+            <p style={{ marginTop: '10px', color: '#6c757d', fontSize: '14px', margin: '10px 0 0' }}>
               Please upload all required documents before submitting.
             </p>
           )}
           {allDocumentsUploaded && !allRejectedDocsReuploaded && (
-            <p style={{ marginTop: '10px', color: '#dc3545' }}>
+            <p style={{ marginTop: '10px', color: '#dc3545', fontSize: '14px', margin: '10px 0 0' }}>
               Please re-upload the flagged documents before resubmitting.
             </p>
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }
