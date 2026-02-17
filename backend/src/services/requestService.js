@@ -83,8 +83,14 @@ async function getRequestDetails(requestId) {
     return null;
   }
 
-  const documents = await documentRepository.getDocumentsByRequestId(requestId);
   const documentStatus = await documentRepository.getDocumentUploadStatus(requestId);
+
+  // Only return document files after customer has submitted — not while they're still uploading
+  const showDocuments = ['SUBMITTED', 'COMPLETED'].includes(request.status) ||
+                        ['APPROVED', 'REJECTED'].includes(request.reviewStatus);
+  const documents = showDocuments
+    ? await documentRepository.getDocumentsByRequestId(requestId)
+    : [];
 
   return {
     ...request,

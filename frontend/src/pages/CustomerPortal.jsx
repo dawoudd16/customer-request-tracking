@@ -31,6 +31,7 @@ function CustomerPortal() {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [recentlyUploaded, setRecentlyUploaded] = useState(new Set());
 
   useEffect(() => {
     loadRequest();
@@ -55,6 +56,7 @@ function CustomerPortal() {
     setUploading({ ...uploading, [documentType]: true });
     try {
       await uploadFile(`/api/customer/requests/${request.id}/documents`, file, documentType);
+      setRecentlyUploaded(prev => new Set(prev).add(documentType));
       // Reload request to get updated status
       await loadRequest();
     } catch (err) {
@@ -65,17 +67,13 @@ function CustomerPortal() {
   };
 
   const handleSubmit = async () => {
-    if (!confirm('Are you sure you want to submit? You will not be able to upload more documents after submission.')) {
-      return;
-    }
-
     setSubmitting(true);
     try {
       await publicFetch(`/api/customer/requests/${request.id}/submit`, {
         method: 'POST'
       });
+      setRecentlyUploaded(new Set());
       await loadRequest();
-      alert('Request submitted successfully!');
     } catch (err) {
       alert(`Submission failed: ${err.message}`);
     } finally {
@@ -102,9 +100,10 @@ function CustomerPortal() {
 
   const allDocumentsUploaded = Object.values(documentStatus).every(Boolean);
   // Make read-only if expired, completed, or already approved
-  const isReadOnly = request.isReadOnly || 
-                     request.status === 'EXPIRED' || 
-                     request.status === 'COMPLETED' || 
+  const isReadOnly = request.isReadOnly ||
+                     request.status === 'EXPIRED' ||
+                     request.status === 'COMPLETED' ||
+                     request.status === 'SUBMITTED' ||
                      request.reviewStatus === 'APPROVED';
 
   return (
@@ -124,6 +123,23 @@ function CustomerPortal() {
           marginBottom: '20px'
         }}>
           <strong>Your request has expired.</strong> Please contact your sales agent for assistance.
+        </div>
+      )}
+
+      {request.status === 'SUBMITTED' && (
+        <div style={{
+          padding: '15px',
+          backgroundColor: '#d1ecf1',
+          color: '#0c5460',
+          borderRadius: '4px',
+          marginBottom: '20px',
+          borderLeft: '4px solid #17a2b8'
+        }}>
+          <strong>✓ Your documents have been submitted successfully.</strong>
+          <p style={{ margin: '8px 0 0 0', fontSize: '14px' }}>
+            Our sales team is reviewing your documents and will be in touch with you shortly.
+            If you feel something was submitted incorrectly, please reach out to your sales agent directly.
+          </p>
         </div>
       )}
 
@@ -175,9 +191,9 @@ function CustomerPortal() {
           // Find the uploaded document for this type
           const uploadedDoc = documents.find(doc => doc.type === docType);
 
-          const getDocumentUrl = (storagePath) => {
-            const bucketName = 'customer-request-tracking.firebasestorage.app';
-            return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(storagePath)}?alt=media`;
+          const getDocumentUrl = (doc) => {
+            // Use backend proxy — streams via Admin SDK, always has access
+            return `/api/customer/requests/${token}/files/${doc.id}`;
           };
 
           const formatDate = (timestamp) => {
@@ -243,7 +259,10 @@ function CustomerPortal() {
                   </div>
                 )}
               </div>
-              {isUploaded && uploadedDoc && request.status !== 'SUBMITTED' && (
+              {isUploaded && uploadedDoc && (
+                (request.status !== 'SUBMITTED' && request.reviewStatus !== 'REJECTED') ||
+                recentlyUploaded.has(docType)
+              ) && (
                 <div style={{
                   marginTop: '10px',
                   padding: '10px',
@@ -273,7 +292,7 @@ function CustomerPortal() {
                         <div style={{ width: '100%' }}>
                           {/* Try to show as image first */}
                           <img
-                            src={getDocumentUrl(uploadedDoc.storagePath)}
+                            src={getDocumentUrl(uploadedDoc)}
                             alt={docType}
                             style={{
                               maxWidth: '100%',
@@ -287,7 +306,7 @@ function CustomerPortal() {
                               // If image fails, try PDF viewer
                               e.target.style.display = 'none';
                               const parent = e.target.parentElement;
-                              const docUrl = getDocumentUrl(uploadedDoc.storagePath);
+                              const docUrl = getDocumentUrl(uploadedDoc);
                               
                               // Check if it's a PDF or other file type
                               const iframe = document.createElement('iframe');
@@ -312,7 +331,7 @@ function CustomerPortal() {
                         </div>
                       </div>
                       <a
-                        href={getDocumentUrl(uploadedDoc.storagePath)}
+                        href={getDocumentUrl(uploadedDoc)}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
@@ -331,7 +350,7 @@ function CustomerPortal() {
                   )}
                 </div>
               )}
-              {isUploaded && request.status === 'SUBMITTED' && (
+              {isUploaded && request.status === 'SUBMITTED' && !recentlyUploaded.has(docType) && (
                 <div style={{
                   marginTop: '10px',
                   padding: '10px',

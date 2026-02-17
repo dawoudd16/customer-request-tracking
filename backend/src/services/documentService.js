@@ -46,17 +46,24 @@ async function uploadDocument(requestId, documentType, file, actorIp = null) {
   }
 
   // Upload file to Firebase Storage
-  // Explicitly specify bucket name to avoid errors
-  const bucketName = 'customer-request-tracking.firebasestorage.app';
-  const bucket = storage.bucket(bucketName);
+  // Use the default bucket configured in Firebase Admin (from firebase.js / environment)
+  const bucket = storage.bucket();
   const fileName = `requests/${requestId}/${documentType}/${Date.now()}_${file.originalname}`;
   const fileUpload = bucket.file(fileName);
+
+  // Generate a download token before upload and embed it in the file metadata.
+  // This is the same mechanism Firebase client SDK uses — no IAM permissions needed.
+  const crypto = require('crypto');
+  const downloadToken = crypto.randomUUID();
 
   // Upload the file
   await new Promise((resolve, reject) => {
     const stream = fileUpload.createWriteStream({
       metadata: {
-        contentType: file.mimetype
+        contentType: file.mimetype,
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken
+        }
       }
     });
 
@@ -65,8 +72,9 @@ async function uploadDocument(requestId, documentType, file, actorIp = null) {
     stream.end(file.buffer);
   });
 
-  // Make file publicly readable (or use signed URLs in production)
-  await fileUpload.makePublic();
+  // Construct the download URL using the embedded token
+  const bucketName = bucket.name;
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(fileName)}?alt=media&token=${downloadToken}`;
 
   // Delete old documents of the same type (if any) to allow re-upload
   const existingDoc = await documentRepository.getDocumentByType(requestId, documentType);
@@ -93,6 +101,7 @@ async function uploadDocument(requestId, documentType, file, actorIp = null) {
     requestId: requestId,
     type: documentType,
     storagePath: fileName,
+    downloadUrl: downloadUrl,
     checksum: null // Could calculate MD5/SHA256 hash here
   });
 

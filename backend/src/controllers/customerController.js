@@ -9,6 +9,7 @@ const requestRepository = require('../repositories/requestRepository');
 const documentRepository = require('../repositories/documentRepository');
 const documentService = require('../services/documentService');
 const { DOCUMENT_TYPES, REQUEST_STATUS } = require('../models/request');
+const { storage } = require('../firebase');
 
 /**
  * Get customer request by secure token
@@ -32,11 +33,6 @@ async function getRequestByToken(req, res) {
 
     // Determine if request is read-only (expired)
     const isReadOnly = request.status === REQUEST_STATUS.EXPIRED;
-    
-    // Hide documents from customer after submission/resubmission
-    // Customers should not see their uploaded files once submitted
-    // But we still return documentStatus so they know what's uploaded
-    const shouldHideDocuments = request.status === REQUEST_STATUS.SUBMITTED;
 
     res.json({
       request: {
@@ -49,9 +45,7 @@ async function getRequestByToken(req, res) {
         expiredAt: request.expiredAt,
         isReadOnly
       },
-      // Return empty documents array if request is submitted (hide file previews/downloads)
-      documents: shouldHideDocuments ? [] : documents,
-      // Keep documentStatus so customer knows upload status, but files are hidden
+      documents,
       documentStatus,
       requiredDocumentTypes: Object.values(DOCUMENT_TYPES)
     });
@@ -132,9 +126,48 @@ async function submitRequest(req, res) {
   }
 }
 
+/**
+ * Stream a document file back to the client
+ * GET /api/customer/requests/:token/files/:docId
+ */
+async function streamDocument(req, res) {
+  try {
+    const { token, docId } = req.params;
+
+    // Verify the token belongs to a real request
+    const request = await requestRepository.getRequestByToken(token);
+    if (!request) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Find the document and make sure it belongs to this request
+    const doc = await documentRepository.getDocumentById(docId);
+    if (!doc || doc.requestId !== request.id) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Stream the file from Firebase Storage using Admin SDK (always has access)
+    const bucket = storage.bucket();
+    const file = bucket.file(doc.storagePath);
+
+    const [metadata] = await file.getMetadata();
+    res.setHeader('Content-Type', metadata.contentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+
+    file.createReadStream()
+      .on('error', () => res.status(500).end())
+      .pipe(res);
+  } catch (error) {
+    console.error('Error streaming document:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
 module.exports = {
   getRequestByToken,
   uploadDocument,
-  submitRequest
+  submitRequest,
+  streamDocument
 };
 

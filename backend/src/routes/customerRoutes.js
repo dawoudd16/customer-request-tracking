@@ -28,5 +28,8 @@ router.post('/requests/:id/documents', upload.single('file'), customerController
 // POST /api/customer/requests/:id/submit
 router.post('/requests/:id/submit', customerController.submitRequest);
 
+// GET /api/customer/requests/:token/files/:docId  (proxy — streams file via Admin SDK)
+router.get('/requests/:token/files/:docId', customerController.streamDocument);
+
 module.exports = router;
 

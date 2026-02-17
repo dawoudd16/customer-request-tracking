@@ -19,6 +19,7 @@ async function createDocument(documentData) {
     requestId: documentData.requestId,
     type: documentData.type,
     storagePath: documentData.storagePath,
+    downloadUrl: documentData.downloadUrl || null,
     uploadedAt: new Date(),
     checksum: documentData.checksum || null
   });
@@ -28,6 +29,15 @@ async function createDocument(documentData) {
     ...documentData,
     uploadedAt: new Date()
   };
+}
+
+/**
+ * Get a single document by its ID
+ */
+async function getDocumentById(documentId) {
+  const doc = await db.collection('documents').doc(documentId).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() };
 }
 
 /**
@@ -132,6 +142,7 @@ async function areAllDocumentsUploaded(requestId) {
 
 module.exports = {
   createDocument,
+  getDocumentById,
   getDocumentsByRequestId,
   getDocumentByType,
   getDocumentUploadStatus,

@@ -280,10 +280,12 @@ function RequestDetailPanel({ request, onUpdate }) {
     }
   };
 
-  const getDocumentUrl = (storagePath) => {
-    // Construct Firebase Storage URL
-    const bucketName = 'customer-request-tracking.firebasestorage.app';
-    return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(storagePath)}?alt=media`;
+  const getDocumentUrl = (doc) => {
+    // Use backend proxy via the request's secure token — streams via Admin SDK, always has access
+    if (req.secureToken) {
+      return `/api/customer/requests/${req.secureToken}/files/${doc.id}`;
+    }
+    return '';
   };
 
   // Use currentRequest state instead of request prop
@@ -443,7 +445,7 @@ function RequestDetailPanel({ request, onUpdate }) {
                       <div style={{ width: '100%' }}>
                         {/* Try to show as image first */}
                         <img
-                          src={getDocumentUrl(doc.storagePath)}
+                          src={getDocumentUrl(doc)}
                           alt={doc.type}
                           style={{
                             maxWidth: '100%',
@@ -457,7 +459,7 @@ function RequestDetailPanel({ request, onUpdate }) {
                             // If image fails, try PDF viewer
                             e.target.style.display = 'none';
                             const parent = e.target.parentElement;
-                            const docUrl = getDocumentUrl(doc.storagePath);
+                            const docUrl = getDocumentUrl(doc);
                             
                             // Check if it's a PDF or other file type
                             const iframe = document.createElement('iframe');
@@ -482,7 +484,7 @@ function RequestDetailPanel({ request, onUpdate }) {
                       </div>
                     </div>
                     <a
-                      href={getDocumentUrl(doc.storagePath)}
+                      href={getDocumentUrl(doc)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
