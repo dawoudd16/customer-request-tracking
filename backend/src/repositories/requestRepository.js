@@ -133,36 +133,25 @@ async function getRequestsByAgentId(agentId) {
 
 /**
  * Get all requests (for manager dashboard)
+ * Filters applied in Firestore; sorting done in memory to avoid composite index requirements
  */
 async function getAllRequests(filters = {}) {
   let query = db.collection('requests');
-  
-  // Apply filters
+
+  // Apply equality filters (no orderBy in Firestore to avoid composite index requirement)
   if (filters.agentId) {
     query = query.where('agentId', '==', filters.agentId);
   }
   if (filters.status) {
     query = query.where('status', '==', filters.status);
   }
-  
-  // Order by creation date (newest first)
-  query = query.orderBy('createdAt', 'desc');
-  
-  // Apply date range if provided
-  if (filters.startDate) {
-    query = query.where('createdAt', '>=', filters.startDate);
-  }
-  if (filters.endDate) {
-    query = query.where('createdAt', '<=', filters.endDate);
-  }
-  
+
   const snapshot = await query.get();
-  return snapshot.docs.map(doc => {
+  const requests = snapshot.docs.map(doc => {
     const data = doc.data();
     return {
       id: doc.id,
       ...data,
-      // Convert Firestore timestamps to ISO strings for JSON serialization
       createdAt: convertTimestamp(data.createdAt),
       updatedAt: convertTimestamp(data.updatedAt),
       expiredAt: convertTimestamp(data.expiredAt),
@@ -170,6 +159,15 @@ async function getAllRequests(filters = {}) {
       reviewedAt: convertTimestamp(data.reviewedAt)
     };
   });
+
+  // Sort by createdAt descending in memory
+  requests.sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+    return dateB - dateA;
+  });
+
+  return requests;
 }
 
 /**

@@ -5,7 +5,7 @@
  * Features: KPI cards, filterable requests table, request detail panel, reassignment.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseClient';
@@ -81,24 +81,23 @@ function ManagerDashboard() {
     setAgents(data.agents);
   };
 
-  const loadRequests = useCallback(async () => {
+  const loadRequests = async (status, agentId) => {
     const params = [];
-    if (filterStatus) params.push(`status=${filterStatus}`);
-    if (filterAgentId) params.push(`agentId=${filterAgentId}`);
+    if (status) params.push(`status=${status}`);
+    if (agentId) params.push(`agentId=${agentId}`);
     const url = '/api/manager/requests' + (params.length ? '?' + params.join('&') : '');
     const data = await authenticatedFetch(url);
     setRequests(data.requests);
-  }, [filterStatus, filterAgentId]);
+  };
 
   // Initial load
   useEffect(() => {
-    Promise.all([loadKPIs(), loadAgents(), loadRequests()]).finally(() => setLoading(false));
+    Promise.all([loadKPIs(), loadAgents(), loadRequests('', '')]).finally(() => setLoading(false));
   }, []);
 
-  // Reload requests when filters change
-  useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
+  const handleApplyFilters = async () => {
+    await loadRequests(filterStatus, filterAgentId);
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -114,7 +113,7 @@ function ManagerDashboard() {
         method: 'POST',
         body: JSON.stringify({ newAgentId })
       });
-      await Promise.all([loadKPIs(), loadRequests()]);
+      await Promise.all([loadKPIs(), loadRequests(filterStatus, filterAgentId)]);
       // Update selected with new agent name
       const newAgent = agents.find(a => a.id === newAgentId);
       setSelected(prev => ({ ...prev, agentId: newAgentId, agentName: newAgent?.name }));
@@ -230,9 +229,15 @@ function ManagerDashboard() {
                 ))}
               </select>
             </div>
+            <button
+              onClick={handleApplyFilters}
+              style={{ padding: '6px 16px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500', marginTop: '18px' }}
+            >
+              Apply
+            </button>
             {(filterStatus || filterAgentId || searchTerm) && (
               <button
-                onClick={() => { setFilterStatus(''); setFilterAgentId(''); setSearchTerm(''); }}
+                onClick={() => { setFilterStatus(''); setFilterAgentId(''); setSearchTerm(''); loadRequests('', ''); }}
                 style={{ padding: '6px 12px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', marginTop: '18px' }}
               >
                 Clear All
