@@ -267,6 +267,10 @@ async function reviewRequest(requestId, decision, comment, actorId, actorIp = nu
   else if (decision === 'REJECT') {
     updateData.status = REQUEST_STATUS.IN_PROGRESS;
     updateData.rejectedDocumentTypes = rejectedDocumentTypes;
+    // Recalculate completion: rejected docs no longer count as valid uploads
+    const TOTAL_DOCS = 4; // ID, LICENCE, PROOF_OF_ADDRESS, BANK_STATEMENT
+    const validDocs = TOTAL_DOCS - rejectedDocumentTypes.length;
+    updateData.completionPercent = Math.round((validDocs / TOTAL_DOCS) * 100);
   }
 
   await requestRepository.updateRequest(requestId, updateData);
